@@ -495,11 +495,21 @@ PRINT |
 
 FOR LCOUNT, 0, 6
 	好感度値 = 好感度:対象:LCOUNT
-	CALL PRINTCOLOR, @"{好感度値, 8}", 好感度色分け(ERDNAME(好感度, LCOUNT), 好感度値, 1)
+	IF !好感度値
+		PRINTFORM %SPACES(8)%
+	ELSE
+		CALL PRINTCOLOR, @"{好感度値, 8}", 好感度色分け(ERDNAME(好感度, LCOUNT), 好感度値, 1)
+	ENDIF
 	PRINT |
 NEXT
-CALL PRINTCOLOR, @"{好感度合計(対象), 10}", 好感度色分け("好感度合計", 好感度合計(対象), 1)
+
+IF !好感度合計(対象)
+	PRINTFORM %SPACES(10)%
+ELSE
+	CALL PRINTCOLOR, @"{好感度合計(対象), 10}", 好感度色分け("好感度合計", 好感度合計(対象), 1)
+ENDIF
 PRINT |
+
 好感度値 = CFLAG:対象:インモラル
 IF インモラル標準偏差 >= 0
 	偏差値 = 500
