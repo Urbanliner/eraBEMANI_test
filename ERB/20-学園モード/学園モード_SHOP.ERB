@@ -163,3 +163,386 @@ ENDSELECT
 
 SIF RESULT
 	CALL TURNEND_学園
+
+
+
+@TURNEND_学園
+#DIM DYNAMIC LCOUNT
+#DIM DYNAMIC LCOUNT2
+#DIM DYNAMIC 滞在者
+#DIM DYNAMIC 総数
+#DIM DYNAMIC 残数最大値
+#DIM DYNAMIC 残数初期化判定
+
+#DIM DYNAMIC 学校ID
+#DIM DYNAMIC 学校ID記録, 10000
+#DIM DYNAMIC 風紀_人数カウント, 学校数上限
+#DIM DYNAMIC 風紀_カウント倍率
+#DIM DYNAMIC インモラル平均, 学校数上限
+#DIM DYNAMIC インモラル2乗平均, 学校数上限
+#DIM DYNAMIC インモラル標準偏差, 学校数上限
+#DIM DYNAMIC 偏差値
+#DIM DYNAMIC 補正方向
+
+#DIM DYNAMIC 小学校入学可能
+#DIM DYNAMIC 女子校入学可能
+
+授業参加フラグ = 0
+授業中 = 0
+
+FOR LCOUNT, 0, CHARANUM
+	SIF PENIS(LCOUNT) && CFLAG:LCOUNT:残数 == 0
+		残数初期化判定++
+	SIF 残数初期化判定 >= 2
+		BREAK
+NEXT
+
+;全キャラの素質変化をみる
+FOR LCOUNT, 0, CHARANUM
+	IF PENIS(LCOUNT)
+		;初期化判定も見る
+		IF CFLAG:LCOUNT:残数 == 0 && 残数初期化判定 <= 1
+			PRINTFORML %NAME:LCOUNT%がより多く射精できるようになった
+			TALENT:LCOUNT:絶倫 += 1
+		ENDIF
+		残数最大値 = 10+5*TALENT:LCOUNT:絶倫
+		CFLAG:LCOUNT:残数 += 残数最大値/2
+		SIF CFLAG:LCOUNT:残数 > 残数最大値
+			CFLAG:LCOUNT:残数 = 残数最大値
+	ENDIF
+	;酔が抜ける 学園モードでは二日酔いはしない
+	SELECTCASE ターン
+		;日中
+		CASE "朝", "昼", "夕"
+			;若いと抜けやすいし年取ると抜けにくい（涙）
+			IF TALENT:LCOUNT:児童
+				CFLAG:LCOUNT:酔 -= 5
+			ELSE
+				SIF CFLAG:LCOUNT:酔
+					CFLAG:LCOUNT:酔 += 3
+			ENDIF
+			IF TALENT:LCOUNT:酒豪
+				CFLAG:LCOUNT:酔 -= 20+(特質("代謝強化", LCOUNT)/2)
+				CFLAG:LCOUNT:酔 -= TEQUIP:LCOUNT:ウォッカ/3
+			ELSEIF TALENT:LCOUNT:下戸
+				CFLAG:LCOUNT:酔 -= 5+(特質("代謝強化", LCOUNT)/4)
+				CFLAG:LCOUNT:酔 -= TEQUIP:LCOUNT:ウォッカ/5
+			ELSE
+				CFLAG:LCOUNT:酔 -= 10+(特質("代謝強化", LCOUNT)/3)
+				CFLAG:LCOUNT:酔 -= TEQUIP:LCOUNT:ウォッカ/4
+			ENDIF
+		;日付変更時 全員0になる
+		CASE "夜"
+			CFLAG:LCOUNT:酔 = 0
+	ENDSELECT
+	SIF CFLAG:LCOUNT:酔 < 0
+		CFLAG:LCOUNT:酔 = 0
+NEXT
+
+;ここで口上側のターン終了時関数を呼ぶ
+IF OPTION:口上表示
+	FOR LCOUNT, 0, CHARANUM
+		SIF !CFLAG:LCOUNT:口上非表示
+			TRYCALLFORM SCHOOL_TURNEND_%CSVNAMERPS(NO:LCOUNT)%
+	NEXT
+ENDIF
+
+;ターンを進める
+SELECTCASE ターン
+	CASE "朝"
+		PRINTW 昼になった……
+		ターン = 昼
+		;登校中のキャラを参照
+		FOR LCOUNT, 1, CHARANUM
+			;サボり魔は10%でバックレてる さすがに教師はバックレない
+			SIF CSTR:LCOUNT:現在地 == CSTR:LCOUNT:在校 && TALENT:LCOUNT:サボり魔 && RAND:10 == 0
+				CSTR:LCOUNT:現在地 = 
+		NEXT
+	CASE "昼"
+		PRINTL 夕方になった……
+		ターン = 夕
+		;生徒は放課後タイム
+		FOR LCOUNT, 1, CHARANUM
+			SIF CSTR:LCOUNT:現在地 == CSTR:LCOUNT:在校
+				CSTR:LCOUNT:現在地 = 
+			;教師陣もぼちぼち帰る
+			SIF CSTR:LCOUNT:現在地 == CSTR:LCOUNT:在任 && RAND:2
+				CSTR:LCOUNT:現在地 = 
+		NEXT
+		;PLAYERも学校に入れば帰宅
+		IF CSTR:PLAYER:現在地 == CSTR:PLAYER:在校
+			PRINTL 授業の日程を終えて下校した
+			CSTR:PLAYER:現在地 = 自宅
+		ELSEIF 校内()
+			IF 小中高(CSTR:PLAYER:現在地) == "大"
+				PRINTFORML 他の学生に合わせて%CALLNAME:PLAYER%も帰宅した
+			ELSE
+				PRINTFORML 他の生徒に合わせて%CALLNAME:PLAYER%も下校した
+			ENDIF
+			CSTR:PLAYER:現在地 = 自宅
+		ENDIF
+		WAIT
+	CASE "夕"
+		PRINTW 夜になった……
+		ターン = 夜
+		;教師陣も確定で帰る
+		;生徒は放課後タイム
+		FOR LCOUNT, 1, CHARANUM
+			SIF CSTR:LCOUNT:現在地 == CSTR:LCOUNT:在任
+				CSTR:LCOUNT:現在地 = 
+		NEXT
+	CASE "夜"
+		IF 同行者
+			IF CSTR:同行者:現在地 != @"%CALLNAME:PLAYER%の家" && CSTR:同行者:現在地 != "ラブホテル"
+				PRINTFORMW %CALLNAME:同行者%は、今日はもう遅いからまた明日と%CALLNAME:PLAYER%と別れた
+				CSTR:同行者:現在地 =
+				CSTR:同行者:目的 =
+				同行者 = 0
+			ENDIF
+		ENDIF
+		滞在者 = FINDCHARA(CSTR:現在地, @"%CALLNAME:PLAYER%の家", 1)
+		IF 滞在者 > 0 && !自宅宿泊フラグ
+			PRINTFORMW %CALLNAME:滞在者%は、今日はもう遅いからと%CALLNAME:PLAYER%の家を後にした
+			CSTR:滞在者:現在地 = 
+			CSTR:滞在者:目的 = 
+			同行者 = 0
+		ENDIF
+		自宅宿泊フラグ = 0
+		PRINTW 一日が終わった……
+		ターン = 朝
+		DAY++
+		CALL NEXTDAY
+		SIF CSTR:PLAYER:現在地 !=  "ラブホテル"
+			CSTR:PLAYER:現在地 = 自宅
+		IF 夏休み()
+			SELECTCASE MONTH*100+DAYS
+				CASE 722
+					PRINTW 楽しい夏休みが始まった！
+				CASE 831
+					PRINTW 夏休み最終日です
+			ENDSELECT
+		ELSEIF 冬休み()
+			SELECTCASE MONTH*100+DAYS
+				CASE 1224
+					PRINTW 楽しい冬休みが始まった！
+				CASE 107
+					PRINTW 冬休み最終日です
+			ENDSELECT
+		ELSEIF 春休み()
+			SELECTCASE MONTH*100+DAYS
+				CASE 325
+					PRINTW 楽しい春休みが始まった！
+				CASE 406
+					PRINTW 春休み最終日です
+			ENDSELECT
+		ELSE
+			IF !休日()
+				;朝は在校生と教師は学校に居る
+				FOR LCOUNT, 1, CHARANUM
+					;ただしサボり魔は10%でサボってる 教師も例外ではない
+					IF CSTR:LCOUNT:在校 != "" && !(TALENT:LCOUNT:サボり魔 && RAND:10 == 0)
+						CSTR:LCOUNT:現在地 = %CSTR:LCOUNT:在校%
+						;小学校のみ私服登校可
+						IF 小中高(CSTR:LCOUNT:在校) != "小"
+							SELECTCASE SEX(LCOUNT)
+								CASE 1
+									IF LCOUNT == PLAYER && 女子校判定(CSTR:PLAYER:在校)
+										CSTR:LCOUNT:上半身上着 = 制服
+										CSTR:LCOUNT:下半身上着 = スカート
+										CSTR:LCOUNT:全身上着 =
+
+										CFLAG:LCOUNT:挿入可 = 1
+										CFLAG:LCOUNT:着衣併用 = 0
+										CFLAG:LCOUNT:上着パイズリ = 5
+									ELSE
+										CSTR:LCOUNT:上半身上着 = 制服
+										CSTR:LCOUNT:下半身上着 = ズボン
+										CSTR:LCOUNT:全身上着 =
+
+										CFLAG:LCOUNT:挿入可 = 0
+										CFLAG:LCOUNT:着衣併用 = 0
+										CFLAG:LCOUNT:上着パイズリ = 5
+									ENDIF
+								CASE 2
+									CSTR:LCOUNT:上半身上着 = 制服
+									CSTR:LCOUNT:下半身上着 = スカート
+									CSTR:LCOUNT:全身上着 =
+
+									CFLAG:LCOUNT:挿入可 = 1
+									CFLAG:LCOUNT:着衣併用 = 0
+									CFLAG:LCOUNT:上着パイズリ = 5
+							ENDSELECT
+						ENDIF
+					ENDIF
+					SIF CSTR:LCOUNT:在任 != "" && !(TALENT:LCOUNT:サボり魔 && RAND:10 == 0)
+						CSTR:LCOUNT:現在地 = %CSTR:LCOUNT:在任%
+				NEXT
+			ELSE
+				;休日なら各々私服になる
+				FOR LCOUNT, 0, CHARANUM
+					FOR LCOUNT2, 100, 107
+						IF 学園用服装:LCOUNT:(LCOUNT2-100) != ""
+							CSTR:LCOUNT:LCOUNT2 = %学園用服装:LCOUNT:(LCOUNT2-100)%
+						ELSEIF LCOUNT != PLAYER
+							CSTR:LCOUNT:LCOUNT2 = %CSVCSTR(NOF(LCOUNT), LCOUNT2)%
+						ENDIF
+					NEXT
+					IF PLAYER == LCOUNT
+						CFLAG:LCOUNT:挿入可 = 学園用服装フラグ:LCOUNT:挿入可
+						CFLAG:LCOUNT:着衣併用 = 学園用服装フラグ:LCOUNT:着衣併用
+						CFLAG:LCOUNT:上着パイズリ = 学園用服装フラグ:LCOUNT:上着パイズリ
+						CFLAG:LCOUNT:下着パイズリ = 学園用服装フラグ:LCOUNT:下着パイズリ
+						CFLAG:LCOUNT:全身上着パイズリ = 学園用服装フラグ:LCOUNT:全身上着パイズリ
+						CFLAG:LCOUNT:耐水 = 学園用服装フラグ:LCOUNT:耐水
+					ELSE
+						CFLAG:LCOUNT:挿入可 = CSVCFLAG(NOF(LCOUNT), GETNUM(CFLAG, "挿入可"))
+						CFLAG:LCOUNT:着衣併用 = CSVCFLAG(NOF(LCOUNT), GETNUM(CFLAG, "着衣併用"))
+						CFLAG:LCOUNT:上着パイズリ = CSVCFLAG(NOF(LCOUNT), GETNUM(CFLAG, "上着パイズリ"))
+						CFLAG:LCOUNT:下着パイズリ = CSVCFLAG(NOF(LCOUNT), GETNUM(CFLAG, "下着パイズリ"))
+						CFLAG:LCOUNT:全身上着パイズリ = CSVCFLAG(NOF(LCOUNT), GETNUM(CFLAG, "全身上着パイズリ"))
+						CFLAG:LCOUNT:耐水 = CSVCFLAG(NOF(LCOUNT), GETNUM(CFLAG, "耐水"))
+						CALL 服装プリセット選出, LCOUNT
+					ENDIF
+				NEXT
+			ENDIF
+		ENDIF
+		IF 同行者
+			IF  CSTR:PLAYER:現在地 == "ラブホテル"
+				CALL SCHOOL_KOJO, 同行者, "ホテルで起床"
+			ELSE
+				CALL SCHOOL_KOJO, 同行者, "起床"
+			ENDIF
+		ENDIF
+
+		;1日ごとに学校ごとの風紀を計算する
+		FOR LCOUNT, 0, CHARANUM
+			IF CSTR:LCOUNT:在校 != ""
+				学校ID = FINDELEMENT(学校名, CSTR:LCOUNT:在校, 0, 学校数上限, 1)
+				IF 学校ID >= 0
+					学校ID記録:LCOUNT = 学校ID
+					風紀_人数カウント:学校ID++
+					インモラル平均:学校ID += CFLAG:LCOUNT:インモラル
+					インモラル2乗平均:学校ID += POWER(CFLAG:LCOUNT:インモラル, 2)
+				ELSE
+					学校ID記録:LCOUNT = -1
+				ENDIF
+			ELSEIF CSTR:LCOUNT:在任 != ""
+				学校ID = FINDELEMENT(学校名, CSTR:LCOUNT:在任, 0, 学校数上限, 1)
+				IF 学校ID >= 0
+					学校ID記録:LCOUNT = 学校ID
+					SELECTCASE CSTR:LCOUNT:担当科目
+						CASE "理事長", "校長"
+							風紀_カウント倍率 = 5
+						CASE "保健"
+							風紀_カウント倍率 = 3
+						CASEELSE
+							風紀_カウント倍率 = 2
+					ENDSELECT
+					風紀_人数カウント:学校ID += 風紀_カウント倍率
+					インモラル平均:学校ID += 風紀_カウント倍率 * CFLAG:LCOUNT:インモラル
+					インモラル2乗平均:学校ID += 風紀_カウント倍率 * POWER(CFLAG:LCOUNT:インモラル, 2)
+				ELSE
+					学校ID記録:LCOUNT = -1
+				ENDIF
+			ELSE
+				学校ID記録:LCOUNT = -1
+			ENDIF
+		NEXT
+		FOR LCOUNT, 0, 学校数上限
+			IF 風紀_人数カウント:LCOUNT
+				;100倍で計算する
+				インモラル平均:LCOUNT *= 100
+				インモラル平均:LCOUNT /= 風紀_人数カウント:LCOUNT
+				インモラル2乗平均:LCOUNT *= 100
+				インモラル2乗平均:LCOUNT /= 風紀_人数カウント:LCOUNT
+
+				;「風紀」は10倍で記録しておく
+				風紀:LCOUNT = インモラル平均:LCOUNT/10
+
+				;この時点では分散の100倍
+				;分散は「2乗の平均-平均の2乗」で求める
+				;平均はすでに100倍してあり2乗すると10000倍になるので100で割る
+				インモラル標準偏差:LCOUNT = インモラル2乗平均:LCOUNT - POWER(インモラル平均:LCOUNT, 2)/100
+
+				;標準偏差は√(分散)で求まる
+				;ここで標準偏差の10倍にする
+				;ただし、標準偏差は1.0未満にならないようにする
+				インモラル標準偏差:LCOUNT = MAX(インモラル標準偏差:LCOUNT, 100)
+				インモラル標準偏差:LCOUNT = SQRT(インモラル標準偏差:LCOUNT)
+			ELSE
+				風紀:LCOUNT = 0
+			ENDIF
+		NEXT
+		;全キャラのインモラルを変動させる
+		;インモラル偏差値(標準偏差10)を算出し、平均から偏差値10離れるごとに(平均に向かうように)インモラルを1変動させる
+		;ただし、偏差値の離れ具合が10で割って5.1~9.9余るとき、2%～98%の確率で1変動する
+		FOR LCOUNT, 0, CHARANUM
+			IF 学校ID記録:LCOUNT >= 0
+				学校ID = 学校ID記録:LCOUNT
+				偏差値 = 100*(10*CFLAG:LCOUNT:インモラル-風紀:学校ID)/インモラル標準偏差:学校ID
+				補正方向 = SIGN(-偏差値)
+				偏差値 = ABS(偏差値)
+				CFLAG:LCOUNT:インモラル += 補正方向*(偏差値/100)
+				IF INRANGE(偏差値, 51, 99)
+					IF RANDPER(2*(偏差値-50))
+						CFLAG:LCOUNT:インモラル += 補正方向
+					ENDIF
+				ENDIF
+			ENDIF
+		NEXT
+		;学校への侵入可能判定をする
+		;風紀が10.0以上なら侵入可能、ただし小学校・女子校へは条件を満たしていない場合20.0必要
+		;(例外として、女子校にすでに入学しているなら男でも10.0でOK)
+		;大学へは無条件に入れる
+		SIF TALENT:PLAYER:体格 < 3
+			小学校入学可能 = 1
+		SIF SEX(PLAYER) == 2 || 女子校判定(CSTR:PLAYER:在校)
+			女子校入学可能 = 1
+		FOR LCOUNT, 0, 学校数上限
+			IF 小中高(学校名:LCOUNT) == "小"
+				IF 風紀:LCOUNT >= 200
+					侵入可能:LCOUNT = 1
+				ELSEIF 小学校入学可能 && 風紀:LCOUNT >= 100
+					侵入可能:LCOUNT = 1
+				ELSE
+					侵入可能:LCOUNT = 0
+				ENDIF
+			ELSEIF 女子校判定(学校名:LCOUNT)
+				IF 風紀:LCOUNT >= 200
+					侵入可能:LCOUNT = 1
+				ELSEIF 女子校入学可能 && 風紀:LCOUNT >= 100
+					侵入可能:LCOUNT = 1
+				ELSE
+					侵入可能:LCOUNT = 0
+				ENDIF
+			ELSEIF 小中高(学校名:LCOUNT) == "大"
+				侵入可能:LCOUNT = 1
+			ELSE
+				IF 風紀:LCOUNT >= 100
+					侵入可能:LCOUNT = 1
+				ELSE
+					侵入可能:LCOUNT = 0
+				ENDIF
+			ENDIF
+		NEXT
+ENDSELECT
+
+FOR LCOUNT, 0, CHARANUM
+	;インモラルは初期値より下がらない
+	SIF CFLAG:LCOUNT:インモラル < CSVCFLAG(NOF(LCOUNT), GETNUM(CFLAG, "インモラル"))
+		CFLAG:LCOUNT:インモラル = CSVCFLAG(NOF(LCOUNT), GETNUM(CFLAG, "インモラル"))
+	CFLAG:LCOUNT:インモラル = LIMIT(CFLAG:LCOUNT:インモラル, -100, 100)
+NEXT
+
+ロケーション可否 =
+TRYCALLFORM ロケーション可否_%RPS(CSTR:PLAYER:現在地)%
+SIF ロケーション可否 != ""
+	CSTR:PLAYER:現在地 = 自宅
+
+CALL SYSTEM_AUTOSAVE
+
+VARLINE = LINECOUNT
+
+LOOP_BREAK = 1
+
+;JUMP SHOP_SCHOOL

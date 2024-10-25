@@ -1,1105 +1,192 @@
-﻿@学校一覧
-#DIM DYNAMIC LCOUNT
+﻿;@学校一覧
+;#DIM DYNAMIC LCOUNT
+;FOR LCOUNT, 0, VARSIZE("学校名")
+;	PRINTFORMLC 　[{LCOUNT}] - %学校名:LCOUNT%
+;NEXT
+;CALL NEWLINE
 
-FOR LCOUNT, 0, VARSIZE("学校名")
-	PRINTFORMLC 　[{LCOUNT}] - %学校名:LCOUNT%
-NEXT
+;-------------------------------------------------
+;簡単な処理や式中関数
 
-CALL NEWLINE
 
-@TURNEND_学園
-#DIM DYNAMIC LCOUNT
-#DIM DYNAMIC LCOUNT2
-#DIM DYNAMIC 滞在者
-#DIM DYNAMIC 総数
-#DIM DYNAMIC 残数最大値
-#DIM DYNAMIC 残数初期化判定
+;;;主人公に名前があるか
+@名前あり()
+#FUNCTION
+SIF CALLNAME:PLAYER == "あなた" || プレイヤー名無しフラグ
+	RETURNF 0
+RETURNF 1
 
-#DIM DYNAMIC 学校ID
-#DIM DYNAMIC 学校ID記録, 10000
-#DIM DYNAMIC 風紀_人数カウント, 学校数上限
-#DIM DYNAMIC 風紀_カウント倍率
-#DIM DYNAMIC インモラル平均, 学校数上限
-#DIM DYNAMIC インモラル2乗平均, 学校数上限
-#DIM DYNAMIC インモラル標準偏差, 学校数上限
-#DIM DYNAMIC 偏差値
-#DIM DYNAMIC 補正方向
 
-#DIM DYNAMIC 小学校入学可能
-#DIM DYNAMIC 女子校入学可能
-
-授業参加フラグ = 0
-授業中 = 0
-
-FOR LCOUNT, 0, CHARANUM
-	SIF PENIS(LCOUNT) && CFLAG:LCOUNT:残数 == 0
-		残数初期化判定++
-	SIF 残数初期化判定 >= 2
-		BREAK
-NEXT
-
-;全キャラの素質変化をみる
-FOR LCOUNT, 0, CHARANUM
-	IF PENIS(LCOUNT)
-		;初期化判定も見る
-		IF CFLAG:LCOUNT:残数 == 0 && 残数初期化判定 <= 1
-			PRINTFORML %NAME:LCOUNT%がより多く射精できるようになった
-			TALENT:LCOUNT:絶倫 += 1
-		ENDIF
-		残数最大値 = 10+5*TALENT:LCOUNT:絶倫
-		CFLAG:LCOUNT:残数 += 残数最大値/2
-		SIF CFLAG:LCOUNT:残数 > 残数最大値
-			CFLAG:LCOUNT:残数 = 残数最大値
-	ENDIF
-	;酔が抜ける 学園モードでは二日酔いはしない
-	SELECTCASE ターン
-		;日中
-		CASE "朝", "昼", "夕"
-			;若いと抜けやすいし年取ると抜けにくい（涙）
-			IF TALENT:LCOUNT:児童
-				CFLAG:LCOUNT:酔 -= 5
-			ELSE
-				SIF CFLAG:LCOUNT:酔
-					CFLAG:LCOUNT:酔 += 3
-			ENDIF
-			IF TALENT:LCOUNT:酒豪
-				CFLAG:LCOUNT:酔 -= 20+(特質("代謝強化", LCOUNT)/2)
-				CFLAG:LCOUNT:酔 -= TEQUIP:LCOUNT:ウォッカ/3
-			ELSEIF TALENT:LCOUNT:下戸
-				CFLAG:LCOUNT:酔 -= 5+(特質("代謝強化", LCOUNT)/4)
-				CFLAG:LCOUNT:酔 -= TEQUIP:LCOUNT:ウォッカ/5
-			ELSE
-				CFLAG:LCOUNT:酔 -= 10+(特質("代謝強化", LCOUNT)/3)
-				CFLAG:LCOUNT:酔 -= TEQUIP:LCOUNT:ウォッカ/4
-			ENDIF
-		;日付変更時 全員0になる
-		CASE "夜"
-			CFLAG:LCOUNT:酔 = 0
-	ENDSELECT
-	SIF CFLAG:LCOUNT:酔 < 0
-		CFLAG:LCOUNT:酔 = 0
-NEXT
-
-;ここで口上側のターン終了時関数を呼ぶ
-IF OPTION:口上表示
-	FOR LCOUNT, 0, CHARANUM
-		SIF !CFLAG:LCOUNT:口上非表示
-			TRYCALLFORM SCHOOL_TURNEND_%CSVNAMERPS(NO:LCOUNT)%
-	NEXT
-ENDIF
-
-;ターンを進める
-SELECTCASE ターン
-	CASE "朝"
-		PRINTW 昼になった……
-		ターン = 昼
-		;登校中のキャラを参照
-		FOR LCOUNT, 1, CHARANUM
-			;サボり魔は10%でバックレてる さすがに教師はバックレない
-			SIF CSTR:LCOUNT:現在地 == CSTR:LCOUNT:在校 && TALENT:LCOUNT:サボり魔 && RAND:10 == 0
-				CSTR:LCOUNT:現在地 = 
-		NEXT
-	CASE "昼"
-		PRINTL 夕方になった……
-		ターン = 夕
-		;生徒は放課後タイム
-		FOR LCOUNT, 1, CHARANUM
-			SIF CSTR:LCOUNT:現在地 == CSTR:LCOUNT:在校
-				CSTR:LCOUNT:現在地 = 
-			;教師陣もぼちぼち帰る
-			SIF CSTR:LCOUNT:現在地 == CSTR:LCOUNT:在任 && RAND:2
-				CSTR:LCOUNT:現在地 = 
-		NEXT
-		;PLAYERも学校に入れば帰宅
-		IF CSTR:PLAYER:現在地 == CSTR:PLAYER:在校
-			PRINTL 授業の日程を終えて下校した
-			CSTR:PLAYER:現在地 = 自宅
-		ELSEIF 校内()
-			IF 小中高(CSTR:PLAYER:現在地) == "大"
-				PRINTFORML 他の学生に合わせて%CALLNAME:PLAYER%も帰宅した
-			ELSE
-				PRINTFORML 他の生徒に合わせて%CALLNAME:PLAYER%も下校した
-			ENDIF
-			CSTR:PLAYER:現在地 = 自宅
-		ENDIF
-		WAIT
-	CASE "夕"
-		PRINTW 夜になった……
-		ターン = 夜
-		;教師陣も確定で帰る
-		;生徒は放課後タイム
-		FOR LCOUNT, 1, CHARANUM
-			SIF CSTR:LCOUNT:現在地 == CSTR:LCOUNT:在任
-				CSTR:LCOUNT:現在地 = 
-		NEXT
-	CASE "夜"
-		IF 同行者
-			IF CSTR:同行者:現在地 != @"%CALLNAME:PLAYER%の家" && CSTR:同行者:現在地 != "ラブホテル"
-				PRINTFORMW %CALLNAME:同行者%は、今日はもう遅いからまた明日と%CALLNAME:PLAYER%と別れた
-				CSTR:同行者:現在地 =
-				CSTR:同行者:目的 =
-				同行者 = 0
-			ENDIF
-		ENDIF
-		滞在者 = FINDCHARA(CSTR:現在地, @"%CALLNAME:PLAYER%の家", 1)
-		IF 滞在者 > 0 && !自宅宿泊フラグ
-			PRINTFORMW %CALLNAME:滞在者%は、今日はもう遅いからと%CALLNAME:PLAYER%の家を後にした
-			CSTR:滞在者:現在地 = 
-			CSTR:滞在者:目的 = 
-			同行者 = 0
-		ENDIF
-		自宅宿泊フラグ = 0
-		PRINTW 一日が終わった……
-		ターン = 朝
-		DAY++
-		CALL NEXTDAY
-		SIF CSTR:PLAYER:現在地 !=  "ラブホテル"
-			CSTR:PLAYER:現在地 = 自宅
-		IF 夏休み()
-			SELECTCASE MONTH*100+DAYS
-				CASE 722
-					PRINTW 楽しい夏休みが始まった！
-				CASE 831
-					PRINTW 夏休み最終日です
-			ENDSELECT
-		ELSEIF 冬休み()
-			SELECTCASE MONTH*100+DAYS
-				CASE 1224
-					PRINTW 楽しい冬休みが始まった！
-				CASE 107
-					PRINTW 冬休み最終日です
-			ENDSELECT
-		ELSEIF 春休み()
-			SELECTCASE MONTH*100+DAYS
-				CASE 325
-					PRINTW 楽しい春休みが始まった！
-				CASE 406
-					PRINTW 春休み最終日です
-			ENDSELECT
-		ELSE
-			IF !休日()
-				;朝は在校生と教師は学校に居る
-				FOR LCOUNT, 1, CHARANUM
-					;ただしサボり魔は10%でサボってる 教師も例外ではない
-					IF CSTR:LCOUNT:在校 != "" && !(TALENT:LCOUNT:サボり魔 && RAND:10 == 0)
-						CSTR:LCOUNT:現在地 = %CSTR:LCOUNT:在校%
-						;小学校のみ私服登校可
-						IF 小中高(CSTR:LCOUNT:在校) != "小"
-							SELECTCASE SEX(LCOUNT)
-								CASE 1
-									IF LCOUNT == PLAYER && 女子校判定(CSTR:PLAYER:在校)
-										CSTR:LCOUNT:上半身上着 = 制服
-										CSTR:LCOUNT:下半身上着 = スカート
-										CSTR:LCOUNT:全身上着 =
-
-										CFLAG:LCOUNT:挿入可 = 1
-										CFLAG:LCOUNT:着衣併用 = 0
-										CFLAG:LCOUNT:上着パイズリ = 5
-									ELSE
-										CSTR:LCOUNT:上半身上着 = 制服
-										CSTR:LCOUNT:下半身上着 = ズボン
-										CSTR:LCOUNT:全身上着 =
-
-										CFLAG:LCOUNT:挿入可 = 0
-										CFLAG:LCOUNT:着衣併用 = 0
-										CFLAG:LCOUNT:上着パイズリ = 5
-									ENDIF
-								CASE 2
-									CSTR:LCOUNT:上半身上着 = 制服
-									CSTR:LCOUNT:下半身上着 = スカート
-									CSTR:LCOUNT:全身上着 =
-
-									CFLAG:LCOUNT:挿入可 = 1
-									CFLAG:LCOUNT:着衣併用 = 0
-									CFLAG:LCOUNT:上着パイズリ = 5
-							ENDSELECT
-						ENDIF
-					ENDIF
-					SIF CSTR:LCOUNT:在任 != "" && !(TALENT:LCOUNT:サボり魔 && RAND:10 == 0)
-						CSTR:LCOUNT:現在地 = %CSTR:LCOUNT:在任%
-				NEXT
-			ELSE
-				;休日なら各々私服になる
-				FOR LCOUNT, 0, CHARANUM
-					FOR LCOUNT2, 100, 107
-						IF 学園用服装:LCOUNT:(LCOUNT2-100) != ""
-							CSTR:LCOUNT:LCOUNT2 = %学園用服装:LCOUNT:(LCOUNT2-100)%
-						ELSEIF LCOUNT != PLAYER
-							CSTR:LCOUNT:LCOUNT2 = %CSVCSTR(NOF(LCOUNT), LCOUNT2)%
-						ENDIF
-					NEXT
-					IF PLAYER == LCOUNT
-						CFLAG:LCOUNT:挿入可 = 学園用服装フラグ:LCOUNT:挿入可
-						CFLAG:LCOUNT:着衣併用 = 学園用服装フラグ:LCOUNT:着衣併用
-						CFLAG:LCOUNT:上着パイズリ = 学園用服装フラグ:LCOUNT:上着パイズリ
-						CFLAG:LCOUNT:下着パイズリ = 学園用服装フラグ:LCOUNT:下着パイズリ
-						CFLAG:LCOUNT:全身上着パイズリ = 学園用服装フラグ:LCOUNT:全身上着パイズリ
-						CFLAG:LCOUNT:耐水 = 学園用服装フラグ:LCOUNT:耐水
-					ELSE
-						CFLAG:LCOUNT:挿入可 = CSVCFLAG(NOF(LCOUNT), GETNUM(CFLAG, "挿入可"))
-						CFLAG:LCOUNT:着衣併用 = CSVCFLAG(NOF(LCOUNT), GETNUM(CFLAG, "着衣併用"))
-						CFLAG:LCOUNT:上着パイズリ = CSVCFLAG(NOF(LCOUNT), GETNUM(CFLAG, "上着パイズリ"))
-						CFLAG:LCOUNT:下着パイズリ = CSVCFLAG(NOF(LCOUNT), GETNUM(CFLAG, "下着パイズリ"))
-						CFLAG:LCOUNT:全身上着パイズリ = CSVCFLAG(NOF(LCOUNT), GETNUM(CFLAG, "全身上着パイズリ"))
-						CFLAG:LCOUNT:耐水 = CSVCFLAG(NOF(LCOUNT), GETNUM(CFLAG, "耐水"))
-						CALL 服装プリセット選出, LCOUNT
-					ENDIF
-				NEXT
-			ENDIF
-		ENDIF
-		IF 同行者
-			IF  CSTR:PLAYER:現在地 == "ラブホテル"
-				CALL SCHOOL_KOJO, 同行者, "ホテルで起床"
-			ELSE
-				CALL SCHOOL_KOJO, 同行者, "起床"
-			ENDIF
-		ENDIF
-
-		;1日ごとに学校ごとの風紀を計算する
-		FOR LCOUNT, 0, CHARANUM
-			IF CSTR:LCOUNT:在校 != ""
-				学校ID = FINDELEMENT(学校名, CSTR:LCOUNT:在校, 0, 学校数上限, 1)
-				IF 学校ID >= 0
-					学校ID記録:LCOUNT = 学校ID
-					風紀_人数カウント:学校ID++
-					インモラル平均:学校ID += CFLAG:LCOUNT:インモラル
-					インモラル2乗平均:学校ID += POWER(CFLAG:LCOUNT:インモラル, 2)
-				ELSE
-					学校ID記録:LCOUNT = -1
-				ENDIF
-			ELSEIF CSTR:LCOUNT:在任 != ""
-				学校ID = FINDELEMENT(学校名, CSTR:LCOUNT:在任, 0, 学校数上限, 1)
-				IF 学校ID >= 0
-					学校ID記録:LCOUNT = 学校ID
-					SELECTCASE CSTR:LCOUNT:担当科目
-						CASE "理事長", "校長"
-							風紀_カウント倍率 = 5
-						CASE "保健"
-							風紀_カウント倍率 = 3
-						CASEELSE
-							風紀_カウント倍率 = 2
-					ENDSELECT
-					風紀_人数カウント:学校ID += 風紀_カウント倍率
-					インモラル平均:学校ID += 風紀_カウント倍率 * CFLAG:LCOUNT:インモラル
-					インモラル2乗平均:学校ID += 風紀_カウント倍率 * POWER(CFLAG:LCOUNT:インモラル, 2)
-				ELSE
-					学校ID記録:LCOUNT = -1
-				ENDIF
-			ELSE
-				学校ID記録:LCOUNT = -1
-			ENDIF
-		NEXT
-		FOR LCOUNT, 0, 学校数上限
-			IF 風紀_人数カウント:LCOUNT
-				;100倍で計算する
-				インモラル平均:LCOUNT *= 100
-				インモラル平均:LCOUNT /= 風紀_人数カウント:LCOUNT
-				インモラル2乗平均:LCOUNT *= 100
-				インモラル2乗平均:LCOUNT /= 風紀_人数カウント:LCOUNT
-
-				;「風紀」は10倍で記録しておく
-				風紀:LCOUNT = インモラル平均:LCOUNT/10
-
-				;この時点では分散の100倍
-				;分散は「2乗の平均-平均の2乗」で求める
-				;平均はすでに100倍してあり2乗すると10000倍になるので100で割る
-				インモラル標準偏差:LCOUNT = インモラル2乗平均:LCOUNT - POWER(インモラル平均:LCOUNT, 2)/100
-
-				;標準偏差は√(分散)で求まる
-				;ここで標準偏差の10倍にする
-				;ただし、標準偏差は1.0未満にならないようにする
-				インモラル標準偏差:LCOUNT = MAX(インモラル標準偏差:LCOUNT, 100)
-				インモラル標準偏差:LCOUNT = SQRT(インモラル標準偏差:LCOUNT)
-			ELSE
-				風紀:LCOUNT = 0
-			ENDIF
-		NEXT
-		;全キャラのインモラルを変動させる
-		;インモラル偏差値(標準偏差10)を算出し、平均から偏差値10離れるごとに(平均に向かうように)インモラルを1変動させる
-		;ただし、偏差値の離れ具合が10で割って5.1~9.9余るとき、2%～98%の確率で1変動する
-		FOR LCOUNT, 0, CHARANUM
-			IF 学校ID記録:LCOUNT >= 0
-				学校ID = 学校ID記録:LCOUNT
-				偏差値 = 100*(10*CFLAG:LCOUNT:インモラル-風紀:学校ID)/インモラル標準偏差:学校ID
-				補正方向 = SIGN(-偏差値)
-				偏差値 = ABS(偏差値)
-				CFLAG:LCOUNT:インモラル += 補正方向*(偏差値/100)
-				IF INRANGE(偏差値, 51, 99)
-					IF RANDPER(2*(偏差値-50))
-						CFLAG:LCOUNT:インモラル += 補正方向
-					ENDIF
-				ENDIF
-			ENDIF
-		NEXT
-		;学校への侵入可能判定をする
-		;風紀が10.0以上なら侵入可能、ただし小学校・女子校へは条件を満たしていない場合20.0必要
-		;(例外として、女子校にすでに入学しているなら男でも10.0でOK)
-		;大学へは無条件に入れる
-		SIF TALENT:PLAYER:体格 < 3
-			小学校入学可能 = 1
-		SIF SEX(PLAYER) == 2 || 女子校判定(CSTR:PLAYER:在校)
-			女子校入学可能 = 1
-		FOR LCOUNT, 0, 学校数上限
-			IF 小中高(学校名:LCOUNT) == "小"
-				IF 風紀:LCOUNT >= 200
-					侵入可能:LCOUNT = 1
-				ELSEIF 小学校入学可能 && 風紀:LCOUNT >= 100
-					侵入可能:LCOUNT = 1
-				ELSE
-					侵入可能:LCOUNT = 0
-				ENDIF
-			ELSEIF 女子校判定(学校名:LCOUNT)
-				IF 風紀:LCOUNT >= 200
-					侵入可能:LCOUNT = 1
-				ELSEIF 女子校入学可能 && 風紀:LCOUNT >= 100
-					侵入可能:LCOUNT = 1
-				ELSE
-					侵入可能:LCOUNT = 0
-				ENDIF
-			ELSEIF 小中高(学校名:LCOUNT) == "大"
-				侵入可能:LCOUNT = 1
-			ELSE
-				IF 風紀:LCOUNT >= 100
-					侵入可能:LCOUNT = 1
-				ELSE
-					侵入可能:LCOUNT = 0
-				ENDIF
-			ENDIF
-		NEXT
-ENDSELECT
-
-FOR LCOUNT, 0, CHARANUM
-	;インモラルは初期値より下がらない
-	SIF CFLAG:LCOUNT:インモラル < CSVCFLAG(NOF(LCOUNT), GETNUM(CFLAG, "インモラル"))
-		CFLAG:LCOUNT:インモラル = CSVCFLAG(NOF(LCOUNT), GETNUM(CFLAG, "インモラル"))
-	CFLAG:LCOUNT:インモラル = LIMIT(CFLAG:LCOUNT:インモラル, -100, 100)
-NEXT
-
-ロケーション可否 =
-TRYCALLFORM ロケーション可否_%RPS(CSTR:PLAYER:現在地)%
-SIF ロケーション可否 != ""
-	CSTR:PLAYER:現在地 = 自宅
-
-CALL SYSTEM_AUTOSAVE
-
-VARLINE = LINECOUNT
-
-LOOP_BREAK = 1
-
-;JUMP SHOP_SCHOOL
-
+;;;引数の2人の間の相性を上昇させる関数
 @相性増加, 対象, 相手, 上昇値
 #DIM DYNAMIC 上昇値
 #DIM DYNAMIC 対象
 #DIM DYNAMIC 相手
-
-;引数の2人の間の相性を上昇させる関数
-
 RELATION:対象:NOF(相手) += 上昇値
 RELATION:相手:NOF(対象) += 上昇値
 
-@クラスメイト選出, 対象, 選出タイプ
+
+;;;恋人処理とメッセージ表示
+@恋仲, 対象
 #DIM DYNAMIC 対象
-#DIMS DYNAMIC 選出タイプ
-;無所属が一番多くなるので余裕を持つ
-#DIM DYNAMIC クラスメイト, 300
-#DIM DYNAMIC 候補, 5
-#DIM DYNAMIC 人数
-#DIM DYNAMIC LCOUNT
-#DIM DYNAMIC LCOUNT2
+TALENT:対象:恋慕 = 1
+PRINTFORML %NAME:対象%が恋人になった！
+CALL 経験値取得, 対象, "学園"
 
-;第一引数のキャラと同じ学校の生徒を、第二引数で指定した条件で選出する
-;RESULT:0～4で最大5人返す 必要なぶんだけRESULTを参照すると良い
 
-SIF データベース参照中
-	RETURN
-
-;既にどこかのグループに入ってる場合は無効
-SIF 出現率:対象 == -1
-	RETURN
-;同行中も無効
-IF 同行者 == 対象
-	出現率:対象 = -1
-	RETURN
-ENDIF
-
-;グループ候補は出現率を-1に設定する
-出現率:対象 = -1
-
-人数 = 0
-
-;無所属と教師は判定しない(暫定)
-SIF CSTR:対象:在校 == ""
-	RETURN
-
-FOR LCOUNT, 1, CHARANUM
-	SIF CSTR:対象:在校 == CSTR:LCOUNT:在校
-		クラスメイト:(人数++) = LCOUNT
-NEXT
-
-;クラスメイト変数の順番をシャッフルする
-FOR LCOUNT, 0, 人数
-	SWAP クラスメイト:LCOUNT, クラスメイト:(RAND(LCOUNT, 人数))
-NEXT
-
-SELECTCASE 選出タイプ
-	;相性の良いクラスメイトを優先
-	;同値のキャラが複数いればランダムで選出（上で既にシャッフルしてある）
-	CASE "相性"
-		FOR LCOUNT, 0, 人数
-			;対象は除外
-			SIF クラスメイト:LCOUNT == 対象
-				CONTINUE
-			;既にグループ候補の場合は入れない
-			SIF 出現率:(クラスメイト:LCOUNT) == -1
-				CONTINUE
-			;現在地が確定してる場合も無理
-			SIF CSTR:(クラスメイト:LCOUNT):現在地 != ""
-				CONTINUE
-			FOR LCOUNT2, 0, 5
-				{
-				IF 候補:LCOUNT2 == 0 ||
-				相性値(クラスメイト:LCOUNT, 対象) > 相性値(候補:LCOUNT2, 対象) ||
-				相性値(対象, クラスメイト:LCOUNT) > 相性値(対象, 候補:LCOUNT2)
-				}
-					ARRAYSHIFT 候補, 1, クラスメイト:LCOUNT, LCOUNT2
-					;グループ候補は出現率を-1に設定する
-					出現率:(クラスメイト:LCOUNT) = -1
-					BREAK
-				ENDIF
-			NEXT
-		NEXT
-	;ランダム選出
-	CASEELSE
-		FOR LCOUNT, 0, 人数
-			;対象は除外
-			SIF クラスメイト:LCOUNT == 対象
-				CONTINUE
-			;既にグループ候補の場合は入れない
-			SIF 出現率:(クラスメイト:LCOUNT) == -1
-				CONTINUE
-			;現在地が確定してる場合も無理
-			SIF CSTR:(クラスメイト:LCOUNT):現在地 != ""
-				CONTINUE
-			ARRAYSHIFT 候補, 1, クラスメイト:LCOUNT
-		NEXT
-		ARRAYCOPY "クラスメイト", "候補"
-		FOR LCOUNT, 0, 5
-			出現率:(候補:LCOUNT) = -1
-		NEXT
-ENDSELECT
-
-RETURN 候補:0, 候補:1, 候補:2, 候補:3, 候補:4
-
-@グループキャラ選出, 対象, 選出タイプ
+;;;連絡先入手とメッセージ表示
+@連絡先入手, 対象
 #DIM DYNAMIC 対象
-#DIMS DYNAMIC 選出タイプ
-#DIM DYNAMIC 候補, 5
-#DIM DYNAMIC LCOUNT
-#DIM DYNAMIC LCOUNT2
-#DIM DYNAMIC 出現率記録用, 10000
-#DIM DYNAMIC 乱数
-
-;上のとほぼ同じだが、こちらは学校ごとではなく全体でグループを作る
-;ただし学校が同じでもない、相性が良いわけでもない、何も接点の無いキャラはグループにならない
-;RESULT:0～4で最大5人返す 必要なぶんだけRESULTを参照すると良い
-
-SIF データベース参照中
-	RETURN
-
-;既にどこかのグループに入ってる場合は無効
-SIF 出現率:対象 == -1
-	RETURN
-;同行中も無効
-IF 同行者 == 対象
-	出現率:対象 = -1
-	RETURN
-ENDIF
-
-;グループ候補は出現率を-1に設定する
-出現率:対象 = -1
-;マリィ、レイヴガール、トルマリンは選出されたら全員-1に設定
-;別のキャラから同時に呼ばれないようにする処理はまだ
-IF !GROUPMATCH(-1, GETCHARANAME("マリィ"), GETCHARANAME("レイヴガール"), GETCHARANAME("トルマリン"))
-	IF GROUPMATCH(対象, GETCHARANAME("マリィ"), GETCHARANAME("レイヴガール"), GETCHARANAME("トルマリン"))
-		出現率:GETCHARANAME("マリィ") = -1
-		出現率:GETCHARANAME("レイヴガール") = -1
-		出現率:GETCHARANAME("トルマリン") = -1
-	ENDIF
-ENDIF
-
-;番号が変わるので対象の値をNOにしておく
-対象 = NO:対象
-
-ARRAYCOPY "出現率", "出現率記録用"
-
-;キャラの順番をシャッフルする
-FOR LCOUNT, 1, CHARANUM
-	乱数 = RAND(LCOUNT, CHARANUM)
-	SWAPCHARA LCOUNT, 乱数
-	SWAP 出現率記録用:LCOUNT, 出現率記録用:乱数
-NEXT
-
-SELECTCASE 選出タイプ
-	;相性の良いキャラを優先
-	;同値のキャラが複数いればランダムで選出
-	CASE "相性"
-		FOR LCOUNT, 1, CHARANUM
-			;対象自身は除外
-			SIF LCOUNT == GETCHARA(対象)
-				CONTINUE
-			;既にグループ候補の場合は入れない
-			SIF 出現率記録用:LCOUNT == -1
-				CONTINUE
-			;現在地が確定してる場合も無理
-			SIF CSTR:LCOUNT:現在地 != ""
-				CONTINUE
-			;相性、学校、血縁のいずれかも接点が無いキャラは除外
-			SIF CSTR:GETCHARA(対象):在校 != "" && CSTR:GETCHARA(対象):在校 == CSTR:LCOUNT:在校
-				GOTO CLEAR
-			SIF CSTR:GETCHARA(対象):在任 != "" && CSTR:GETCHARA(対象):在任 == CSTR:LCOUNT:在任
-				GOTO CLEAR
-			SIF CFLAG:GETCHARA(対象):血縁コード && CFLAG:GETCHARA(対象):血縁コード == CFLAG:LCOUNT:血縁コード
-				GOTO CLEAR
-			SIF 相性値(GETCHARA(対象), LCOUNT) > 100
-				GOTO CLEAR
-			SIF 相性値(LCOUNT, GETCHARA(対象)) > 100
-				GOTO CLEAR
-			CONTINUE
-
-			$CLEAR
-			FOR LCOUNT2, 0, 5
-				{
-				IF 候補:LCOUNT2 == 0 ||
-				相性値(LCOUNT, GETCHARA(対象)) > 相性値(GETCHARA(候補:LCOUNT2), GETCHARA(対象)) ||
-				相性値(GETCHARA(対象), LCOUNT) > 相性値(GETCHARA(対象), GETCHARA(候補:LCOUNT2))
-				}
-					;こっちは後でキャラ番号戻るのでNOで入れる
-					ARRAYSHIFT 候補, 1, NO:LCOUNT, LCOUNT2
-					BREAK
-				ENDIF
-			NEXT
-		NEXT
-	;接点のあるキャラをランダム選出
-	CASEELSE
-		FOR LCOUNT, 1, CHARANUM
-			;対象自身は除外
-			SIF LCOUNT == GETCHARA(対象)
-				CONTINUE
-			;既にグループ候補の場合は入れない
-			SIF 出現率:LCOUNT == -1
-				CONTINUE
-			;現在地が確定してる場合も無理
-			SIF CSTR:LCOUNT:現在地 != ""
-				CONTINUE
-			;相性、学校、血縁のいずれかも接点が無いキャラは除外
-			SIF CSTR:GETCHARA(対象):在校 != "" && CSTR:GETCHARA(対象):在校 == CSTR:LCOUNT:在校
-				GOTO CLEARELSE
-			SIF CSTR:GETCHARA(対象):在任 != "" && CSTR:GETCHARA(対象):在任 == CSTR:LCOUNT:在任
-				GOTO CLEARELSE
-			SIF CFLAG:GETCHARA(対象):血縁コード && CFLAG:GETCHARA(対象):血縁コード == CFLAG:LCOUNT:血縁コード
-				GOTO CLEARELSE
-			SIF 相性値(GETCHARA(対象), LCOUNT) > 100
-				GOTO CLEARELSE
-			SIF 相性値(LCOUNT, GETCHARA(対象)) > 100
-				GOTO CLEARELSE
-			CONTINUE
-
-			$CLEARELSE
-			;こっちは後でキャラ番号戻るのでNOで入れる
-			ARRAYSHIFT 候補, 1, NO:LCOUNT
-		NEXT
-ENDSELECT
-
-;最後にNOでソートしなおす
-SORTCHARA NO
-
-;グループ候補は出現率を-1に設定する
-FOR LCOUNT, 0, 5
-	SIF 候補:LCOUNT
-		出現率:GETCHARA(候補:LCOUNT) = -1
-NEXT
-
-RETURN GETCHARA(候補:0), GETCHARA(候補:1), GETCHARA(候補:2), GETCHARA(候補:3), GETCHARA(候補:4)
-
-@学園データベース
-#DIM DYNAMIC LCOUNT
-
-CALL 学校一覧_データベース
-RETURN 0
+連絡先:(NO:対象) = 1
+PRINTFORML 連絡先入手:%NAME:対象%
 
 
-@学校一覧_データベース
-#DIMS DYNAMIC 表示好感度
-#DIM DYNAMIC LCOUNT
-#DIM DYNAMIC LTARGET
-#DIMS DYNAMIC 名称抜き取り用, 2
-#DIMS DYNAMIC ロケーション名
-#DIM DYNAMIC 選択校
-#DIM DYNAMIC 選択キャラ
-#DIM DYNAMIC 表示数
-#DIM DYNAMIC 最大桁数
-#DIM DYNAMIC 最大文字列長
-#DIM DYNAMIC 改行カウント
-#DIM DYNAMIC リスト表示
+@連絡先入手済み, 対象
+#FUNCTION
 #DIM DYNAMIC 対象
-#DIM DYNAMIC バストサイズ編集
-#DIM DYNAMIC 風紀_人数カウント
-#DIM DYNAMIC 風紀_カウント倍率
-#DIM DYNAMIC 風紀_データベース用
-#DIM DYNAMIC インモラル平均
-#DIM DYNAMIC インモラル2乗平均
-#DIM DYNAMIC インモラル標準偏差
-#DIM DYNAMIC インモラル偏差値表示
-#DIM CONST 無所属 = VARSIZE("学校名")
+SIF 連絡先:(NO:対象)
+	RETURNF 1
+RETURNF 0
 
-FOR LCOUNT, 0, VARSIZE("学校名")
-	SIF STRLENS(学校名:LCOUNT) > 最大文字列長
-		最大文字列長 = STRLENS(学校名:LCOUNT)
-NEXT
-;最大文字列長を偶数にする
-SIF 最大文字列長%2
-	最大文字列長++
-PRINTFORML 侵入可%SPACES(7)%%SPACES((最大文字列長-6)/2)%学校名%SPACES((最大文字列長-6)/2)%
-改行カウント = 3
-FOR LCOUNT, 0, VARSIZE("学校名")
-	IF 学校名:LCOUNT == ""
-		IF 改行カウント
-			改行カウント--
-			PRINTL
-		ENDIF
-		CONTINUE
-	ENDIF
-	IF 学校名:LCOUNT == CSTR:MASTER:在校
-		PRINTPLAIN 　★　
-	ELSEIF 侵入可能:LCOUNT
-		PRINTPLAIN 　○　
-	ELSE
-		PRINTPLAIN 　　　
-	ENDIF
-	PRINTFORM [{LCOUNT, 2}] - %学校名:LCOUNT%
-	PRINTFORM %SPACES(最大文字列長 - STRLENS(学校名:LCOUNT))%
-	IF ITEM:ラブスコープ
-		PRINTPLAIN 　風紀:
-		SELECTCASE 風紀:LCOUNT
-			CASE 100 TO 199
-				SETCOLORBYNAME lime
-			CASE 200 TO 299
-				SETCOLORBYNAME yellow
-			CASE IS >= 300
-				SETCOLORBYNAME coral
-		ENDSELECT
-		PRINTFORM {風紀:LCOUNT/10, 2}.{ABS(風紀:LCOUNT)%10}
-		RESETCOLOR
-	ENDIF
-	PRINTL
-NEXT
-PRINTFORM 　　　[{無所属, 2}] - 無所属or社会人
-PRINTFORM %SPACES(最大文字列長 - 14)%
-PRINTL
-
-DRAWLINE
-PRINTPLAIN 　DATABASE　
-PRINT [-1] - 戻る
-IF ITEM:ラブスコープ
-	SELECTCASE ラブスコープ使用
-		CASE 0
-			表示好感度 = 表示しない
-		CASE 1 TO 6
-			表示好感度 = %ERDNAME(好感度, ラブスコープ使用-1)%
-		CASE 7
-			表示好感度 = 好感度合計
-		CASE 8
-			表示好感度 = インモラル
-	ENDSELECT
-	PRINTFORM 　[-2] - ラブスコープの表示切り替え(現在:\@ 表示好感度 == "舎弟" ? 舎弟or母性 # %表示好感度% \@)
-ENDIF
-PRINT 　[-9] - 名前で検索
-;#; PRINT 　[-99] - セーブデータのアップデート
-PRINTL 
-
-BINPUT
-選択校 = RESULT
-SELECTCASE RESULT
-	CASE -1
-		RETURN
-	CASE -2
-		CALL ラブスコープ設定変更
-		RESTART
-	CASE -9
-		CALL LOOP_CLEARLINE, 1
-		CALL CHARA_LIST, "全キャラ表示", 1, 1
-		SIF RESULT == 10000
-			RESTART
-		選択キャラ = GETCHARA(RESULT)
-		GOTO キャラ選択済み
-	CASE -99
-		;あまり古いセーブデータだと色々意図しない挙動が発生する事があるため一旦デバッグモードのみの機能
-		PRINTFORML 現在のセーブデータが作成された以降に実装されたキャラを追加し、無所属キャラを新規入学・赴任させます
-		PRINTFORML [0] アップデート処理を開始
-		PRINTFORML [1] やめておく
-		BINPUT
-		IF !RESULT
-			PRINTFORML 処理を開始します。しばらくお待ちください……
-			CALL 学園モード開始, 1
-			PRINTFORMW アップデート処理を完了しました
-		ENDIF
-		RESTART
-ENDSELECT
-
-SIF 選択校 < 0
-	RESTART
-
-VARSET 在校ID
-VARSET 在任ID
-VARSET 特殊在校ID
-VARSET 在校人数
-VARSET 在任人数
-VARSET 特殊在校人数
-
-風紀_人数カウント = 0
-インモラル平均 = 0
-インモラル2乗平均 = 0
-;インモラルの重み付け平均※「風紀」と、平均との離れ具合(偏差値)を求める
-;ただし、分散は定義通り求めるより「2乗の平均-平均の2乗」で求めるほうが簡単なのでそっちで求める
-;※重み付けは平均・分散どちらにおいても、教師は2倍(保健は3倍/理事長・校長は5倍)の人数いるものとして計算する
-
-FOR LCOUNT, 0, CHARANUM
-	IF 選択校 == 無所属
-		IF CSTR:LCOUNT:在校 == "" && CSTR:LCOUNT:在任 == ""
-			在校ID:在校人数 = LCOUNT
-			在校人数++
-		ENDIF
-	ELSE
-		IF CSTR:LCOUNT:在校 == 学校名:選択校
-			IF CFLAG:LCOUNT:特殊在校
-				特殊在校ID:特殊在校人数 = LCOUNT
-				特殊在校人数++
-			ELSE
-				在校ID:在校人数 = LCOUNT
-				在校人数++
-			ENDIF
-			風紀_人数カウント++
-			インモラル平均 += CFLAG:LCOUNT:インモラル
-			インモラル2乗平均 += POWER(CFLAG:LCOUNT:インモラル, 2)
-		ELSEIF CSTR:LCOUNT:在任 == 学校名:選択校
-			在任ID:在任人数 = LCOUNT
-			在任人数++
-			SELECTCASE CSTR:LCOUNT:担当科目
-				CASE "理事長", "校長"
-					風紀_カウント倍率 = 5
-				CASE "保健"
-					風紀_カウント倍率 = 3
-				CASEELSE
-					風紀_カウント倍率 = 2
-			ENDSELECT
-			風紀_人数カウント += 風紀_カウント倍率
-			インモラル平均 += 風紀_カウント倍率 * CFLAG:LCOUNT:インモラル
-			インモラル2乗平均 += 風紀_カウント倍率 * POWER(CFLAG:LCOUNT:インモラル, 2)
-		ENDIF
-	ENDIF
-NEXT
-
-インモラル偏差値表示 = 0
-IF 風紀_人数カウント
-	;100倍で計算する
-	インモラル平均 *= 100
-	インモラル平均 /= 風紀_人数カウント
-	インモラル2乗平均 *= 100
-	インモラル2乗平均 /= 風紀_人数カウント
-
-	;「風紀」は10倍で記録しておく
-	;ただしデータベースで再計算した学校だけ風紀の値が変わるのは良くないのでこっちに保存
-	風紀_データベース用 = インモラル平均/10
-
-	;この時点では分散の100倍
-	;分散は「2乗の平均-平均の2乗」で求める
-	;平均はすでに100倍してあり2乗すると10000倍になるので100で割る
-	インモラル標準偏差 = インモラル2乗平均 - POWER(インモラル平均, 2)/100
-
-	;標準偏差は√(分散)で求まる
-	;ここで標準偏差の10倍にする
-	インモラル標準偏差 = SQRT(インモラル標準偏差)
-
-	[IF_DEBUG]
-		インモラル偏差値表示 = 1
-	[ENDIF]
-ENDIF
-
-最大桁数 = 1
-最大文字列長 = 4
-IF 在校人数
-	SIF DGT(在校ID:(在校人数-1)) > 最大桁数
-		最大桁数 = DGT(在校ID:(在校人数-1))
-ENDIF
-IF 在任人数
-	SIF DGT(在任ID:(在任人数-1)) > 最大桁数
-		最大桁数 = DGT(在任ID:(在任人数-1))
-ENDIF
-IF 特殊在校人数
-	SIF DGT(特殊在校ID:(特殊在校人数-1)) > 最大桁数
-		最大桁数 = DGT(特殊在校ID:(特殊在校人数-1))
-ENDIF
-FOR LCOUNT, 0, 在校人数
-	SIF STRLENS(NAME:(在校ID:LCOUNT)) > 最大文字列長
-		最大文字列長 = STRLENS(NAME:(在校ID:LCOUNT))
-NEXT
-FOR LCOUNT, 0, 在任人数
-	SIF STRLENS(NAME:(在任ID:LCOUNT)) > 最大文字列長
-		最大文字列長 = STRLENS(NAME:(在任ID:LCOUNT))
-NEXT
-FOR LCOUNT, 0, 特殊在校人数
-	SIF STRLENS(NAME:(特殊在校ID:LCOUNT)) > 最大文字列長
-		最大文字列長 = STRLENS(NAME:(特殊在校ID:LCOUNT))
-NEXT
-;最大文字列長を偶数にする
-SIF 最大文字列長%2
-	最大文字列長++
-
-$生徒選択
-SIF !INRANGE(選択校, 0, VARSIZE("学校名"))
-	RESTART
-
-DRAWLINE
-IF リスト表示
-	IF 選択校 == 無所属
-		PRINTL ■無所属or社会人
-	ELSE
-		PRINTFORML ■%学校名:選択校%
-		IF インモラル偏差値表示
-			PRINT 　インモラル平均(風紀):
-			IF 風紀:選択校 != 風紀_データベース用
-				PRINTFORM {風紀:選択校/10}.{ABS(風紀:選択校)%10}→
-			ENDIF
-			PRINTFORML {風紀_データベース用/10}.{ABS(風紀_データベース用)%10}　インモラル標準偏差:{インモラル標準偏差/10}.{インモラル標準偏差%10}
-		ELSE
-			PRINT 　風紀崩壊度:
-			IF 風紀:選択校 != 風紀_データベース用
-				PRINTFORM {風紀:選択校/10}.{ABS(風紀:選択校)%10}→
-			ENDIF
-			PRINTFORML {風紀_データベース用/10}.{ABS(風紀_データベース用)%10}
-		ENDIF
-	ENDIF
-	PRINTFORM 恋人|%SPACES(2+最大桁数)%%SPACES((最大文字列長-4)/2)%名前%SPACES((最大文字列長-4)/2)%| 性別 |
-	SIF MOD:バスト関連ステータス表示
-		PRINT 　バスト　   トップ(カップ数)   |
-	PRINT 　友情　|ときめき|　尊敬　|母性舎弟| セフレ |既成事実|好感度合計|
-	IF インモラル偏差値表示
-		PRINT ｲﾝﾓﾗﾙ/偏差値|
-	ELSE
-		PRINT インモラル|
-	ENDIF
-	PRINTL
-
-	FOR LCOUNT, 0, 在校人数
-		対象 = 在校ID:LCOUNT
-		IF TALENT:対象:恋慕
-			PRINT  ● 
-		ELSE
-			PRINT 　　
-		ENDIF 
-		PRINTPLAIN |
-		PRINTFORM [{対象, 最大桁数}]
-		CALL リスト_名前表示, 対象, 最大文字列長
-		PRINTPLAIN |
-		CALL リスト_性別表示, 対象
-		PRINTPLAIN |
-		SIF MOD:バスト関連ステータス表示
-			CALL リスト_バストサイズ, 対象
-		IF インモラル偏差値表示
-			CALL 好感度表示, 対象, 風紀_データベース用, インモラル標準偏差
-		ELSE
-			CALL 好感度表示, 対象
-		ENDIF
-		
-		PRINTL
-	NEXT
-	IF 選択校 != 無所属
-		FOR LCOUNT, 0, 在任人数
-			対象 = 在任ID:LCOUNT
-			IF TALENT:対象:恋慕
-				PRINT  ● 
-			ELSE
-				PRINT 　　
-			ENDIF 
-			PRINTPLAIN |
-			PRINTFORM [{対象, 最大桁数}]
-			CALL リスト_名前表示, 対象, 最大文字列長
-			PRINTPLAIN |
-			CALL リスト_性別表示, 対象
-			PRINTPLAIN |
-			SIF MOD:バスト関連ステータス表示
-				CALL リスト_バストサイズ, 対象
-			IF インモラル偏差値表示
-				CALL 好感度表示, 対象, 風紀_データベース用, インモラル標準偏差
-			ELSE
-				CALL 好感度表示, 対象
-			ENDIF
-			PRINTL
-		NEXT
-	ENDIF
-	IF 選択校 != 無所属
-		FOR LCOUNT, 0, 特殊在校人数
-			対象 = 特殊在校ID:LCOUNT
-			IF TALENT:対象:恋慕
-				PRINT  ● 
-			ELSE
-				PRINT 　　
-			ENDIF 
-			PRINTPLAIN |
-			PRINTFORM [{対象, 最大桁数}]
-			CALL リスト_名前表示, 対象, 最大文字列長
-			PRINTPLAIN |
-			CALL リスト_性別表示, 対象
-			PRINTPLAIN |
-			SIF MOD:バスト関連ステータス表示
-				CALL リスト_バストサイズ, 対象
-			IF インモラル偏差値表示
-				CALL 好感度表示, 対象, 風紀_データベース用, インモラル標準偏差
-			ELSE
-				CALL 好感度表示, 対象
-			ENDIF
-			PRINTL
-		NEXT
-	ENDIF
-ELSE
-	PRINTFORML □\@ 選択校 == 無所属 ? 無所属or社会人のキャラ # %学校名:選択校%の在校生 \@
-	FOR LCOUNT, 0, 在校人数
-		PRINTFORM 　[{在校ID:LCOUNT, 最大桁数}] 
-		CALL SNAME(在校ID:LCOUNT)
-		PRINTL 
-	NEXT
-	IF 選択校 != 無所属
-		PRINTFORML □%学校名:選択校%の教師
-		FOR LCOUNT, 0, 在任人数
-			PRINTFORM 　担当科目:%CSTR:(在任ID:LCOUNT):担当科目% [{在任ID:LCOUNT, 最大桁数}] 
-			CALL SNAME(在任ID:LCOUNT, 1)
-			PRINTL  
-		NEXT
-	ENDIF
-	IF 選択校 != 無所属
-		PRINTFORML □その他%学校名:選択校%に居るキャラ
-		FOR LCOUNT, 0, 特殊在校人数
-			PRINTFORM 　[{特殊在校ID:LCOUNT, 最大桁数}] 
-			CALL SNAME(特殊在校ID:LCOUNT)
-			PRINTL  
-		NEXT
-	ENDIF
-ENDIF
-
-DRAWLINE
-PRINTPLAINFORM 　\@ 選択校 == 無所属 ? 無所属or社会人のキャラ # %学校名:選択校% \@　
-PRINT [-1] - 戻る
-IF ITEM:ラブスコープ
-	SELECTCASE ラブスコープ使用
-		CASE 0
-			表示好感度 = 表示しない
-		CASE 1 TO 6
-			表示好感度 = %ERDNAME(好感度, ラブスコープ使用-1)%
-		CASE 7
-			表示好感度 = 好感度合計
-		CASE 8
-			表示好感度 = インモラル
-	ENDSELECT
-	PRINTFORM 　[-2] - ラブスコープの表示切り替え(現在:\@ 表示好感度 == "舎弟" ? 舎弟or母性 # %表示好感度% \@)
-	PRINT 　[-3] - リスト表示
-	SIF MOD:バスト関連ステータス表示
-		PRINTFORM 　[-8] - バストサイズ編集(現在:\@ バストサイズ編集 ? あり # なし \@)
-ENDIF
-PRINTL
-
-BINPUT
-IF RESULT == -1
-	RESTART
-ELSEIF RESULT == -2
-	CALL ラブスコープ設定変更
-	GOTO 生徒選択
-ELSEIF RESULT == -3
-	INVERTBIT リスト表示, 0
-	GOTO 生徒選択
-ELSEIF RESULT == -8
-	INVERTBIT バストサイズ編集, 0
-	GOTO 生徒選択
-ENDIF
-
-選択キャラ = RESULT
-$キャラ選択済み
-IF バストサイズ編集
-	CALL バストサイズ詳細入力, NOF(選択キャラ)
-	GOTO 生徒選択
-ENDIF
-DRAWLINE
-PRINTFORML □%NAME:選択キャラ%の情報
-PRINT 　所属:
-IF CSTR:選択キャラ:在校 != ""
-	PRINTFORM %CSTR:選択キャラ:在校%\@ CFLAG:選択キャラ:特殊在校 ? (その他) # (生徒) \@
-ELSEIF CSTR:選択キャラ:在任 != ""
-	PRINTFORM %CSTR:選択キャラ:在任%(%CSTR:選択キャラ:担当科目%)
-ELSE
-	PRINT 無所属
-ENDIF
-PRINTL 
-PRINTFORML 　インモラル:{CFLAG:選択キャラ:インモラル}
-IF 選択キャラ != PLAYER
-	IF ラブスコープ使用
-		PRINTL □好感度
-		PRINTFORMLC 　友情:{好感度:選択キャラ:友情}
-		PRINTFORMLC ときめき:{好感度:選択キャラ:ときめき}
-		PRINTFORMLC 尊敬:{好感度:選択キャラ:尊敬}
-		PRINTL 
-		PRINTFORMLC 　\@ SEX(選択キャラ) == 2 || NAME:選択キャラ == "ハニー" ? 母性 # 舎弟 \@:{好感度:選択キャラ:舎弟}
-		PRINTFORMLC セフレ:{好感度:選択キャラ:セフレ}
-		PRINTFORMLC 既成事実:{好感度:選択キャラ:既成事実}
-		PRINTL 
-	ENDIF
-	PRINTL □各ロケーションでの出現率
-	;どこのロケーションに出現するのかを表示
-	データベース参照中 = 選択キャラ
-	表示数 = 0
-	FOR LCOUNT, 0, VARSIZE("ロケーション")
-		VARSET 出現率
-		SPLIT ロケーション:LCOUNT, "/", 名称抜き取り用
-		;分割されてたらスラッシュより後の部分だけを使用する
-		IF RESULT >= 2
-			ロケーション名 = %RPS(名称抜き取り用:1)%
-		ELSE
-			ロケーション名 = %RPS(ロケーション:LCOUNT)%
-		ENDIF
-		TRYCALLFORM 出現キャラ_%RPS(ロケーション名)%
-		;口上による出現率変更
-		IF OPTION:口上表示 && !CFLAG:LCOUNT:口上非表示 && EXISTFUNCTION(@"SCHOOL_%CSVNAMERPS(NO:選択キャラ)%_出現率設定")
-			LTARGET = TARGET
-			TARGET = 選択キャラ
-			CALLFORM SCHOOL_%CSVNAMERPS(NO:選択キャラ)%_出現率設定, ロケーション名
-			IF RESULT < 0
-				出現率:選択キャラ = 0
-			ELSEIF RESULT > 0
-				出現率:選択キャラ = LIMIT(RESULT, 0, 100)
-			ENDIF
-			TARGET = LTARGET
-		ENDIF
-		;出現率も表示
-		SIF !出現率:選択キャラ
-			CONTINUE
-		PRINTFORMLC 　%ロケーション:LCOUNT%({出現率:選択キャラ}\%)
-		表示数++
-		SIF 表示数 != 0 && 表示数%4 == 0
-			PRINTL 
-	NEXT
-	データベース参照中 = 0
-	CALL NEWLINE
-ENDIF
-DRAWLINE
-PRINTPLAIN 　DATABASE　
-PRINTW クリック・Enterで戻る
-
-GOTO 生徒選択
 
 @好感度合計, 対象
 #FUNCTION
 #DIM DYNAMIC 対象
-
 RETURNF SUMARRAY(好感度:対象:0)
+
+
+;;;夏休み、冬休み、春休み判定
+@ISHOLIDAY_SCHOOL, 月 = -1, 日 = -1, 季節
+#FUNCTION
+#DIM DYNAMIC 月
+#DIM DYNAMIC 日
+#DIMS DYNAMIC 季節
+SIF 月 == -1
+	月 = MONTH
+SIF 日 == -1
+	日 = DAYS
+SIF !GROUPMATCH(季節, "夏", "冬", "春")
+	季節 = 
+SIF GROUPMATCH(季節, "夏", "") && INRANGE(月*100+日, 722, 831)
+	RETURNF 1
+SIF GROUPMATCH(季節, "冬", "") && INRANGE(月*100+日, 1224, 1231) || INRANGE(月*100+日, 101, 107)
+	RETURNF 1
+SIF GROUPMATCH(季節, "春", "") && INRANGE(月*100+日, 325, 406)
+	RETURNF 1
+RETURNF 0
+
+
+@夏休み, 月 = -1, 日 = -1
+#FUNCTION
+#DIM DYNAMIC 月
+#DIM DYNAMIC 日
+RETURNF ISHOLIDAY_SCHOOL(月, 日, "夏")
+
+
+@冬休み, 月 = -1, 日 = -1
+#FUNCTION
+#DIM DYNAMIC 月
+#DIM DYNAMIC 日
+RETURNF ISHOLIDAY_SCHOOL(月, 日, "冬")
+
+
+@春休み, 月 = -1, 日 = -1
+#FUNCTION
+#DIM DYNAMIC 月
+#DIM DYNAMIC 日
+RETURNF ISHOLIDAY_SCHOOL(月, 日, "春")
+
+
+;;;登校日判定
+;;;休日でも長期休暇でもなければ1を返す
+@登校日, 年 = -1, 月 = -1, 日 = -1
+#FUNCTION
+#DIM DYNAMIC 年
+#DIM DYNAMIC 月
+#DIM DYNAMIC 日
+SIF 年 == -1
+	年 = YEAR
+SIF 月 == -1
+	月 = MONTH
+SIF 日 == -1
+	日 = DAYS
+IF !休日(年, 月, 日) && !ISHOLIDAY_SCHOOL(月, 日)
+	RETURNF 1
+ELSE
+	RETURNF 0
+ENDIF
+
+
+;;;現在地フリーなキャラが一人でもいればtrue
+@キャラ現在地判定, キャラ名, キャラ名:1, キャラ名:2, キャラ名:3, キャラ名:4
+#FUNCTION
+#DIMS DYNAMIC キャラ名, 5
+#DIM DYNAMIC LCOUNT
+FOR LCOUNT, 0, VARSIZE("キャラ名")
+	SIF キャラ名:LCOUNT != "" && CSTR:GETCHARANAME(キャラ名:LCOUNT):現在地 == ""
+		RETURNF 1
+NEXT
+RETURNF 0
+
+
+;;;出現率が設定されてるキャラからランダムで一人選出する 運命の人優先
+@出現キャラランダム選出
+#DIM DYNAMIC LCOUNT
+#DIM DYNAMIC 滞在キャラ, 1000
+FOR LCOUNT, 1, CHARANUM
+	SIF 出現率:LCOUNT && CSTR:LCOUNT:現在地 == ""
+		ARRAYSHIFT 滞在キャラ, 1, LCOUNT
+NEXT
+IF 滞在キャラ:0 != 0
+	IF FINDELEMENT(滞在キャラ, GETCHARANAME(運命の人)) >= 0
+		RETURN GETCHARANAME(運命の人)
+	ELSE
+		RETURN 滞在キャラ:(RAND:FINDELEMENT(滞在キャラ, 0))
+	ENDIF
+ENDIF
+RETURN 0
+
+
+;;;指定した学校の在校生をランダムで一人選出 呼ばれるたびに変わるため、使う場合は別変数に退避推奨
+@在校生ランダム選出, 学校, 特殊在校含
+#FUNCTION
+#DIM DYNAMIC LCOUNT
+#DIMS DYNAMIC 学校
+#DIM DYNAMIC 人数
+#DIM DYNAMIC リスト, 1000
+#DIM DYNAMIC 特殊在校含
+FOR LCOUNT, 1, CHARANUM
+	IF CSTR:LCOUNT:在校 == 学校
+		SIF CFLAG:LCOUNT:特殊在校 && !特殊在校含
+			CONTINUE
+		リスト:(人数++) = LCOUNT
+	ENDIF
+NEXT
+SIF 人数 == 0
+	RETURNF -1
+RETURNF リスト:(RAND:人数)
+
+
+;;;指定した学校の、指定した科目の教師を取得 複数居る場合はランダム
+@教師取得, 学校, 科目
+#FUNCTION
+#DIM DYNAMIC LCOUNT
+#DIMS DYNAMIC 学校
+#DIMS DYNAMIC 科目
+#DIM DYNAMIC 人数
+#DIM DYNAMIC リスト, 1000
+FOR LCOUNT, 1, CHARANUM
+	SIF CSTR:LCOUNT:在任 == 学校 && CSTR:LCOUNT:担当科目 == 科目
+		リスト:(人数++) = LCOUNT
+NEXT
+SIF 人数 == 0
+	RETURNF -1
+RETURNF リスト:(RAND:人数)
+
+
+;-------------------------------------------------
+;長いもの
+
 
 ;;;学園モードの名前表示処理
 ;;;第1引数に対象のIDを代入、第2引数が0以外なら在任しているキャラに「先生」をつける
@@ -1160,6 +247,7 @@ IF ラブスコープ使用
 	CALL PRINTCOLOR, @"(%表記%:{好感度値})", 好感度色分け(表示好感度, 好感度値)
 ENDIF
 
+
 @好感度色分け, 種類, 好感度値
 #FUNCTIONS
 #DIMS DYNAMIC 種類
@@ -1207,156 +295,6 @@ SELECTCASE 種類
 				RETURNF "coral"
 		ENDSELECT
 ENDSELECT
-
-
-@リスト_名前表示, 対象, 最大文字列長
-#DIM DYNAMIC 対象
-#DIM DYNAMIC 最大文字列長
-
-SIF NAME:対象 == 運命の人
-	SETCOLORBYNAME coral
-PRINTFORM %NAME:対象%%SPACES(最大文字列長-STRLENS(NAME:対象))%
-RESETCOLOR
-
-@リスト_性別表示, 対象
-#DIM DYNAMIC 対象
-IF TALENT:対象:性転換済
-	IF SEX(対象) == 1
-		PRINT ♀→♂
-	ELSE
-		PRINT ♂→♀
-	ENDIF
-ELSE
-	IF SEX(対象) == 1
-		PRINT 　♂　
-	ELSE
-		PRINT 　♀　
-	ENDIF
-ENDIF
-
-@リスト_バストサイズ, 対象
-#DIM DYNAMIC 対象
-#DIM DYNAMIC 対象キャラ番号
-#DIM DYNAMIC 今のサイズ
-#DIM DYNAMIC トップ
-#DIM DYNAMIC アンダー
-#DIM DYNAMIC 成長割合
-#DIM DYNAMIC ワンサイズ増分
-
-対象キャラ番号 = NOF(対象)
-成長割合 = LIMIT(CFLAG:対象:バスト成長, 0, 999)
-今のサイズ = TALENT:対象:バストサイズ
-
-SIF !今のサイズ
-	SETCOLOR 0x404040
-
-IF バストサイズ詳細トップ:対象キャラ番号:今のサイズ
-	トップ = バストサイズ詳細トップ:対象キャラ番号:今のサイズ
-	アンダー = バストサイズ詳細アンダー:対象キャラ番号:今のサイズ
-	IF 成長割合
-		IF バストサイズ詳細トップ:対象キャラ番号:(今のサイズ+1)
-			ワンサイズ増分 = バストサイズ詳細トップ:対象キャラ番号:(今のサイズ+1) - トップ
-			トップ += ワンサイズ増分 * 成長割合 / 1000
-			IF アンダー && バストサイズ詳細アンダー:対象キャラ番号:(今のサイズ+1)
-				ワンサイズ増分 = バストサイズ詳細アンダー:対象キャラ番号:(今のサイズ+1) - アンダー
-				アンダー += ワンサイズ増分 * 成長割合 / 1000
-			ENDIF
-		ENDIF
-	ENDIF 
-	PRINTFORM %CBL_TALENT(今のサイズ, 成長割合)% %CBL_SIZE(トップ,アンダー)%
-ELSE
-	PRINTFORM %CBL_TALENT(今のサイズ, 成長割合)% %SPACES(7+13)%
-ENDIF
-RESETCOLOR
-PRINT |
-
-@好感度表示, 対象, インモラル平均=0, インモラル標準偏差=-1
-#DIM DYNAMIC 対象
-#DIM DYNAMIC 好感度値
-#DIM DYNAMIC インモラル平均
-#DIM DYNAMIC インモラル標準偏差
-#DIM DYNAMIC 偏差値
-#DIM DYNAMIC LCOUNT
-
-FOR LCOUNT, 0, 5
-	好感度値 = 好感度:対象:LCOUNT
-	SELECTCASE 好感度値
-		CASE 0
-			SETCOLORBYNAME black
-		CASE 1 TO 99
-		CASE 100 TO 299
-			SETCOLORBYNAME lime
-		CASE 300 TO 499
-			SETCOLORBYNAME deepskyblue
-		CASE 500 TO 999
-			SETCOLORBYNAME violet
-		CASE IS >= 1000
-			SETCOLORBYNAME coral
-	ENDSELECT
-	PRINTFORM {好感度値, 8}
-	RESETCOLOR
-	PRINT |
-NEXT
-好感度値 = 好感度:対象:5
-SELECTCASE 好感度値
-	CASE 0
-		SETCOLORBYNAME black
-	CASE 1 TO 4
-	CASE 5 TO 9
-		SETCOLORBYNAME lime
-	CASE 10 TO 14
-		SETCOLORBYNAME deepskyblue
-	CASE 15 TO 19
-		SETCOLORBYNAME violet
-	CASE IS >= 20
-		SETCOLORBYNAME coral
-ENDSELECT
-PRINTFORM {好感度値, 8}
-RESETCOLOR
-PRINT |
-好感度値 = 好感度合計(対象)
-SELECTCASE 好感度値
-	CASE 0
-		SETCOLORBYNAME black
-	CASE 1 TO 99
-	CASE 100 TO 299
-		SETCOLORBYNAME lime
-	CASE 300 TO 499
-		SETCOLORBYNAME deepskyblue
-	CASE 500 TO 999
-		SETCOLORBYNAME violet
-	CASE IS >= 1000
-		SETCOLORBYNAME coral
-ENDSELECT
-PRINTFORM {好感度値, 10}
-RESETCOLOR
-PRINT |
-好感度値 = CFLAG:対象:インモラル
-SELECTCASE 好感度値
-	CASE 0
-		SETCOLORBYNAME black
-	CASE 10 TO 29
-		SETCOLORBYNAME lime
-	CASE 30 TO 49
-		SETCOLORBYNAME yellow
-	CASE IS >= 50
-		SETCOLORBYNAME coral
-ENDSELECT
-IF インモラル標準偏差 >= 0
-	偏差値 = 500
-	SIF インモラル標準偏差
-		偏差値 += 100*(10*好感度値-インモラル平均)/インモラル標準偏差
-	SIF !好感度値
-		SETCOLOR 0x404040
-	PRINTFORM {好感度値, 5}
-	RESETCOLOR
-	PRINT /
-	PRINTFORM {偏差値/10, 4}.{偏差値%10}
-ELSE
-	PRINTFORM {好感度値, 10}
-	RESETCOLOR
-ENDIF
-PRINT |
 
 ;;;好感度上昇とメッセージ表示を行う
 @好感度上昇, 対象, 好感度種類, 上昇値
@@ -1618,715 +556,6 @@ ENDIF
 ;好感度に応じて能力が上昇
 CALL SCHOOL_ABLUP, 対象, 1
 
-;;;連絡先入手とメッセージ表示
-@連絡先入手, 対象
-#DIM DYNAMIC 対象
-
-連絡先:(NO:対象) = 1
-
-PRINTFORML 連絡先入手:%NAME:対象%
-
-;;;恋人処理とメッセージ表示
-@恋仲, 対象
-#DIM DYNAMIC 対象
-
-TALENT:対象:恋慕 = 1
-
-PRINTFORML %NAME:対象%が恋人になった！
-CALL 経験値取得, 対象, "学園"
-
-
-;;;TARGETへの代入等は関数呼び出し前後で行う
-@EXECTRAIN_SCHOOL, シチュエーション
-#DIMS DYNAMIC シチュエーション
-#DIMS DYNAMIC 場所名
-#DIMS DYNAMIC 行為前引数
-#DIMS DYNAMIC 行為後引数
-#DIM DYNAMIC コンドーム相手持ち
-#DIM DYNAMIC コンドーム行為前所持数
-#DIM DYNAMIC コンドーム買わない率
-場所名 = %シチュエーション%
-行為前引数 = %シチュエーション%_行為前
-行為後引数 = %シチュエーション%_行為後
-
-SELECTCASE シチュエーション
-	CASE "トイレ"
-		トイレ使用中 = 1
-	CASE "青姦"
-		野外プレイ中 = 1
-	;場所名変更系
-	CASE "宿泊イベント"
-		場所名 = 自宅
-		行為前引数 = 自宅に宿泊
-		行為後引数 = 宿泊_行為後
-	CASE "自宅イベント"
-		場所名 = 自宅
-		行為前引数 = 
-		行為後引数 = 自宅_行為後
-	CASE "保健室ベッドシェア", "保健室教師"
-		場所名 = 保健室
-		行為前引数 = 
-		行為後引数 = 保健室_行為後
-	CASE "保健室眠姦"
-		場所名 = 保健室
-		行為前引数 = 
-		行為後引数 = 
-	CASE "登校前ホテル", "ホテル朝プレイ"
-		場所名 = ホテル
-ENDSELECT
-
-SIF 行為前引数 != ""
-	CALL SCHOOL_KOJO, TARGET, 行為前引数
-
-コンドーム相手持ち = 0
-IF 場所名 == "ホテル" && !ホテル入室済み
-	IF PENIS(MASTER) || PENIS(TARGET)
-		IF PENIS(MASTER)
-			IF VAGINA(TARGET)
-				コンドーム買わない率 += 中出され回数:NOF(MASTER)
-			ELSE
-				コンドーム買わない率 += アナル中出され回数:NOF(MASTER)
-			ENDIF
-		ENDIF
-		IF PENIS(TARGET)
-			IF VAGINA(MASTER)
-				コンドーム買わない率 += 中出され回数:MASTER:NOF(TARGET)
-			ELSE
-				コンドーム買わない率 += アナル中出され回数:MASTER:NOF(TARGET)
-			ENDIF
-		ENDIF
-		IF (CSTR:在任 != "" || TALENT:恋慕) && !RANDPER(コンドーム買わない率)
-			コンドーム相手持ち = 12
-			PRINTFORML %CALLNAME:TARGET%はホテルへの道中でコンドームを1箱買っていくようだ
-			SIF MONEY >= 500
-				PRINTFORML %CALLNAME:MASTER%も買っていきますか？
-		ELSE
-			SIF MONEY >= 500
-				PRINTL ホテルへの道中でコンドームを買っていきますか？
-		ENDIF
-		IF MONEY >= 500
-			PRINTL [0] 買わない
-			PRINTL [1] 1箱(12個)買う
-			SIF MONEY >= 1000
-				PRINTL [2] 2箱(24個)買う
-			SIF MONEY >= 1500
-				PRINTL [3] 3箱(36個)買う
-			BINPUT
-			IF RESULT
-				MONEY -= RESULT*500
-				ITEM:コンドーム += RESULT*12
-				PRINTFORMW {RESULT}箱購入しました
-			ENDIF
-		ENDIF
-	ENDIF
-	PRINTW ホテルに入り、ローションとコンドームを手に入れた
-	ITEM:ローション++
-	ITEM:コンドーム++
-ENDIF
-
-SIF 場所名 == "ホテル"
-	ITEM:プレイマット = 1
-
-IF コンドーム相手持ち
-	コンドーム行為前所持数 = ITEM:コンドーム
-	ITEM:コンドーム += コンドーム相手持ち
-ENDIF
-
-CALL CHECKDRAWLINE
-CALL TRAIN_SCHOOL, 場所名
-CALL CHECKDRAWLINE
-
-IF コンドーム相手持ち 
-	SIF ITEM:コンドーム > コンドーム行為前所持数
-		ITEM:コンドーム = コンドーム行為前所持数
-ENDIF
-ITEM:プレイマット = 0
-
-SIF 行為後引数 != ""
-	CALL SCHOOL_KOJO, TARGET, 行為後引数
-
-;同じ学校の教師と生徒の場合、無条件でインモラル+1
-IF CSTR:在任 == CSTR:MASTER:在校
-	CFLAG:インモラル++
-	CFLAG:MASTER:インモラル++
-ENDIF
-
-;シチュエーション別の上昇処理
-SELECTCASE シチュエーション
-	CASE "自宅"
-		IF TALENT:恋慕
-			CALL 好感度上昇, TARGET, "友情", 20
-			IF 好感度:既成事実
-				CALL 好感度上昇, TARGET, "ときめき", ときめき増加量*20
-			ELSE
-				ときめき増加量 += 3
-				CALL 好感度上昇, TARGET, "ときめき", ときめき増加量*25
-			ENDIF
-			CALL 好感度上昇, TARGET, "セフレ", 30
-			CALL 好感度上昇, TARGET, "既成事実", 1
-		ELSE
-			CALL 好感度上昇, TARGET, "友情", 10
-			CALL 好感度上昇, TARGET, "ときめき", ときめき増加量*10
-			CALL 好感度上昇, TARGET, "セフレ", 60
-			CALL 好感度上昇, TARGET, "既成事実", 1
-			CFLAG:インモラル++
-			CFLAG:MASTER:インモラル++
-		ENDIF
-	CASE "ホテル", "ホテル朝プレイ"
-		IF TALENT:恋慕
-			CALL 好感度上昇, TARGET, "友情", 60
-			IF 好感度:既成事実
-				CALL 好感度上昇, TARGET, "ときめき", ときめき増加量*30
-			ELSE
-				ときめき増加量 += 5
-				CALL 好感度上昇, TARGET, "ときめき", ときめき増加量*35
-			ENDIF
-			CALL 好感度上昇, TARGET, "セフレ", 50
-			CALL 好感度上昇, TARGET, "既成事実", 1
-		ELSE
-			CALL 好感度上昇, TARGET, "友情", 15
-			CALL 好感度上昇, TARGET, "ときめき", ときめき増加量*10
-			CALL 好感度上昇, TARGET, "セフレ", 100
-			CALL 好感度上昇, TARGET, "既成事実", 1
-			CFLAG:インモラル += 3
-			CFLAG:MASTER:インモラル += 3
-		ENDIF
-	CASE "登校前ホテル"
-		IF TALENT:同行者:恋慕
-			CALL 好感度上昇, 同行者, "友情", 5
-			CALL 好感度上昇, 同行者, "ときめき", ときめき増加量*15
-			IF CSTR:同行者:在任 == CSTR:PLAYER:在校
-				CALL 好感度上昇, 同行者, "セフレ", 90
-			ELSE
-				CALL 好感度上昇, 同行者, "セフレ", 60
-			ENDIF
-		ELSE
-			CALL 好感度上昇, 同行者, "友情", 5
-			CALL 好感度上昇, 同行者, "ときめき", ときめき増加量*5
-			IF CSTR:同行者:在任 == CSTR:PLAYER:在校
-				CALL 好感度上昇, 同行者, "セフレ", 300
-			ELSE
-				CALL 好感度上昇, 同行者, "セフレ", 150
-			ENDIF
-			CFLAG:インモラル++
-			CFLAG:MASTER:インモラル++
-		ENDIF
-	CASE "トイレ", "青姦"
-		CALL 好感度上昇, TARGET, "友情", 30
-		CALL 好感度上昇, TARGET, "ときめき", ときめき増加量*5
-		CALL 好感度上昇, TARGET, "セフレ", 80
-		CALL 好感度上昇, TARGET, "既成事実", 1
-		IF !TALENT:恋慕
-			CFLAG:インモラル += 4
-			CFLAG:MASTER:インモラル += 4
-		ELSE
-			CFLAG:インモラル += 2
-			CFLAG:MASTER:インモラル += 2
-		ENDIF
-	CASE "宿泊イベント"
-		IF 好感度:ときめき >= 1000 && 好感度:ときめき > 好感度:セフレ && !TALENT:恋慕
-			CALL 恋仲, TARGET
-			WAIT
-		ENDIF
-		IF TALENT:恋慕
-			CALL 好感度上昇, TARGET, "友情", 30
-			IF 好感度:既成事実
-				CALL 好感度上昇, TARGET, "ときめき", ときめき増加量*25
-			ELSE
-				ときめき増加量 += 5
-				CALL 好感度上昇, TARGET, "ときめき", ときめき増加量*30
-			ENDIF
-			CALL 好感度上昇, TARGET, "セフレ", 40
-			CALL 好感度上昇, TARGET, "既成事実", 1
-		ELSE
-			CALL 好感度上昇, TARGET, "友情", 15
-			CALL 好感度上昇, TARGET, "ときめき", ときめき増加量*10
-			CALL 好感度上昇, TARGET, "セフレ", 80
-			CALL 好感度上昇, TARGET, "既成事実", 1
-			CFLAG:インモラル++
-			CFLAG:MASTER:インモラル++
-		ENDIF
-	CASE "自宅イベント"
-		IF TALENT:恋慕
-			CALL 好感度上昇, TARGET, "友情", 30
-			IF 好感度:既成事実
-				CALL 好感度上昇, TARGET, "ときめき", ときめき増加量*15
-			ELSE
-				ときめき増加量 += 3
-				CALL 好感度上昇, TARGET, "ときめき", ときめき増加量*20
-			ENDIF
-			CALL 好感度上昇, TARGET, "セフレ", 25
-			CALL 好感度上昇, TARGET, "既成事実", 1
-		ELSE
-			CALL 好感度上昇, TARGET, "友情", 15
-			CALL 好感度上昇, TARGET, "ときめき", ときめき増加量*10
-			CALL 好感度上昇, TARGET, "セフレ", 50
-			CALL 好感度上昇, TARGET, "既成事実", 1
-			CFLAG:インモラル++
-			CFLAG:MASTER:インモラル++
-		ENDIF
-	CASE "保健室ベッドシェア"
-		CALL 好感度上昇, TARGET, "友情", 30
-		CALL 好感度上昇, TARGET, "ときめき", ときめき増加量*5
-		CALL 好感度上昇, TARGET, "セフレ", 50
-		CALL 好感度上昇, TARGET, "既成事実", 1
-		IF !TALENT:恋慕
-			CFLAG:インモラル += 3
-			CFLAG:MASTER:インモラル += 3
-		ELSE
-			CFLAG:インモラル += 1
-			CFLAG:MASTER:インモラル += 1
-		ENDIF
-	CASE "保健室", "保健室教師", "体育倉庫"
-		CALL 好感度上昇, TARGET, "友情", 30
-		CALL 好感度上昇, TARGET, "ときめき", ときめき増加量*5
-		CALL 好感度上昇, TARGET, "セフレ", 50
-		CALL 好感度上昇, TARGET, "既成事実", 1
-		IF !TALENT:恋慕
-			CFLAG:インモラル += 4
-			CFLAG:MASTER:インモラル += 4
-		ELSE
-			CFLAG:インモラル += 2
-			CFLAG:MASTER:インモラル += 2
-		ENDIF
-	CASE "校長室", "理事長室"
-		CALL 好感度上昇, TARGET, "友情", 30
-		CALL 好感度上昇, TARGET, "ときめき", ときめき増加量*5
-		CALL 好感度上昇, TARGET, "セフレ", 50
-		CALL 好感度上昇, TARGET, "既成事実", 1
-		IF !TALENT:恋慕
-			CFLAG:インモラル += 6
-			CFLAG:MASTER:インモラル += 6
-		ELSE
-			CFLAG:インモラル += 3
-			CFLAG:MASTER:インモラル += 3
-		ENDIF
-ENDSELECT
-トイレ使用中 = 0
-野外プレイ中 = 0
-ホテル入室済み = 0
-
-;フラグリセット
-VARSET PREG
-VARSET TEQUIP
-VARSET TEQUIP:MASTER:0
-学園モード時限イベント = 0
-時限イベント内容 = 
-
-
-@TRAIN_SCHOOL, 場所
-#DIMS DYNAMIC 場所
-#DIM DYNAMIC LCOUNT
-
-CALL SCHOOL_COMFILTER, 場所
-
-BASE:体力 = MAXBASE:体力
-BASE:気力 = MAXBASE:気力
-
-行為場所 = %場所%
-
-CFLAG:インモラル = LIMIT(CFLAG:インモラル, -100, 100)
-
-CALL EVENTUSERTRAIN
-DO
-	CALL SHOW_STATUS
-	CALL SHOW_USERCOM
-	;INPUT
-	;CALL USERCOM
-LOOP !TFLAG:調教終了
-
-DRAWLINE
-
-;珠の獲得（快と習得だけ加算される）
-CALL JUEL_CHECK, 1
-
-;能力の自動上昇処理
-CALL SCHOOL_ABLUP, TARGET, 0
-
-;イった回数に応じてときめき増加
-ときめき増加量 = SUMARRAY(EX:TARGET:0)
-
-;立つ鳥跡を濁さず
-CALL アイテム修理
-;口上で参照したいのでちょっと外してみる
-;CALL CVAR_RESET
-
-@SCHOOL_ABLUP, 対象, MODE
-#DIM DYNAMIC 対象
-#DIM DYNAMIC MODE
-#DIM DYNAMIC LCOUNT
-#DIM DYNAMIC 目標値
-#DIM DYNAMIC 上昇済
-#DIM DYNAMIC 対応珠
-#DIM DYNAMIC 計算用EXP
-
-;好感度上昇に付随する能力上昇はこっち
-IF MODE == 1
-	FOR LCOUNT, 0, VARSIZE("ABL")
-		上昇済 = 0
-		SIF ABL:対象:LCOUNT >= 10
-			CONTINUE
-		SELECTCASE ABLNAME:LCOUNT
-			CASE "欲望"
-				計算用EXP = 好感度:対象:友情+好感度:対象:セフレ*2+好感度:対象:既成事実*100
-				DO
-					SELECTCASE ABL:対象:欲望
-						CASE 0
-							目標値 = 300
-						CASE 1
-							目標値 = 800
-						CASE 2
-							目標値 = 1200
-						CASE 3
-							目標値 = 1800
-						CASE 4
-							目標値 = 3000
-						CASE 5
-							目標値 = 4200
-						CASE 6
-							目標値 = 5600
-						CASE 7
-							目標値 = 7000
-						CASE 8
-							目標値 = 8500
-						CASE 9
-							目標値 = 10000
-						CASEELSE
-							BREAK
-					ENDSELECT
-					SIF 計算用EXP < 目標値
-						BREAK
-					ABL:対象:欲望++
-					上昇済++
-				LOOP 1
-			CASE "レズっ気"
-				SIF SEX(対象) == 2 && SEX(PLAYER) == 2
-					GOTO っ気の上昇
-			CASE "ホモっ気"
-				SIF SEX(対象) == 1 && SEX(PLAYER) == 1
-					GOTO っ気の上昇
-			CASE "っ気"
-				$っ気の上昇
-				;一旦目標値は欲望と同値でときめきをやや強く 要調整
-				計算用EXP = 好感度:対象:友情+好感度:対象:ときめき*3+好感度:対象:既成事実*80
-				DO
-					SELECTCASE ABL:対象:LCOUNT
-						CASE 0
-							目標値 = 300
-						CASE 1
-							目標値 = 800
-						CASE 2
-							目標値 = 1200
-						CASE 3
-							目標値 = 1800
-						CASE 4
-							目標値 = 3000
-						CASE 5
-							目標値 = 4200
-						CASE 6
-							目標値 = 5600
-						CASE 7
-							目標値 = 7000
-						CASE 8
-							目標値 = 8500
-						CASE 9
-							目標値 = 10000
-						CASEELSE
-							BREAK
-					ENDSELECT
-					SIF 計算用EXP < 目標値
-						BREAK
-					ABL:対象:LCOUNT++
-					上昇済 = 1
-				LOOP 1
-		ENDSELECT
-		SIF ABL:対象:LCOUNT > 10
-			ABL:対象:LCOUNT = 10
-		SIF 上昇済
-			PRINTFORML %NAME:対象%の%ABLNAME:LCOUNT%が{ABL:対象:LCOUNT}になった
-	NEXT
-	RETURN
-ENDIF
-
-FOR LCOUNT, 0, VARSIZE("ABL")
-	上昇済 = 0
-	SIF ABL:対象:LCOUNT >= 10
-		CONTINUE
-	SELECTCASE ABLNAME:LCOUNT
-		CASE "Ｃ感覚"
-			対応珠 = GETPALAM("快Ｃ")
-			GOTO UPWITHJUEL感覚
-		CASE "Ｖ感覚"
-			対応珠 = GETPALAM("快Ｖ")
-			GOTO UPWITHJUEL感覚
-		CASE "Ａ感覚"
-			対応珠 = GETPALAM("快Ａ")
-			GOTO UPWITHJUEL感覚
-		CASE "Ｂ感覚"
-			対応珠 = GETPALAM("快Ｂ")
-			GOTO UPWITHJUEL感覚
-		CASE "技巧"
-			対応珠 = GETPALAM("習得")
-			GOTO UPWITHJUEL
-		CASE "ゲイ中毒"
-			IF EXP:対象:ゲイ経験/300 > ABL:対象:ゲイ中毒
-				ABL:対象:ゲイ中毒 = EXP:対象:ゲイ経験/300
-				上昇済++
-			ENDIF
-		CASE "レズ中毒"
-			IF EXP:対象:レズ経験/300 > ABL:対象:レズ中毒
-				ABL:対象:レズ中毒 = EXP:対象:レズ経験/300
-				上昇済++
-			ENDIF
-		CASE "精液中毒"
-			IF EXP:対象:精液経験/300 > ABL:対象:精液中毒
-				ABL:対象:精液中毒 = EXP:対象:精液経験/300
-				上昇済++
-			ENDIF
-		CASE "自慰中毒"
-			IF EXP:対象:自慰経験/300 > ABL:対象:自慰中毒
-				ABL:対象:自慰中毒 = EXP:対象:自慰経験/300
-				上昇済++
-			ENDIF
-		CASE "性交中毒"
-			IF EXP:対象:性交経験/150 > ABL:対象:性交中毒
-				ABL:対象:性交中毒 = EXP:対象:性交経験/150
-				上昇済++
-			ENDIF
-		CASE "マゾっ気"
-			IF EXP:対象:苦痛快楽経験/150 > ABL:対象:マゾっ気
-				ABL:対象:マゾっ気 = EXP:対象:苦痛快楽経験/150
-				上昇済++
-			ENDIF
-		CASE "奉仕精神"
-			DO
-				SELECTCASE ABL:対象:LCOUNT
-					CASE 0
-						目標値 = 50
-					CASE 1
-						目標値 = 100
-					CASE IS <10
-						目標値 = ABL:対象:LCOUNT*300
-					CASEELSE
-						BREAK
-				ENDSELECT
-				SIF EXP:対象:奉仕快楽経験 < 目標値
-					BREAK
-				ABL:対象:LCOUNT++
-				上昇済++
-			LOOP 1
-		CASE "感覚"
-			$UPWITHJUEL感覚
-			DO
-				SELECTCASE ABL:対象:LCOUNT
-					CASE 0
-						目標値 = 1
-					CASE 1
-						目標値 = 20
-					CASE 2
-						目標値 = 400
-					CASE 3
-						目標値 = 5000
-					CASE 4
-						目標値 = 15000
-					CASE 5
-						目標値 = 30000
-					CASE 6
-						目標値 = 40000
-					CASE 7
-						目標値 = 50000
-					CASE 8
-						目標値 = 60000
-					CASE 9
-						目標値 = 70000
-					CASEELSE
-						BREAK
-				ENDSELECT
-				SIF JUEL:対象:対応珠 < 目標値
-					BREAK
-				JUEL:対象:対応珠 -= 目標値
-				ABL:対象:LCOUNT++
-				上昇済++
-			LOOP 1
-		CASE "珠使うやつ"
-			$UPWITHJUEL
-			DO
-				SELECTCASE ABL:対象:LCOUNT
-					CASE 0
-						目標値 = 20
-					CASE IS < 10
-						目標値 = PALAMLV:(ABL:対象:LCOUNT)+1
-					CASEELSE
-						BREAK
-				ENDSELECT
-				SIF JUEL:対象:対応珠 < 目標値
-					BREAK
-				JUEL:対象:対応珠 -= 目標値
-				ABL:対象:LCOUNT++
-				上昇済++
-			LOOP 1
-		CASE "従順"
-			計算用EXP = EXP:対象:奉仕快楽経験+EXP:対象:苦痛快楽経験
-			DO
-				SELECTCASE ABL:対象:従順
-					CASE 0
-						目標値 = 50
-					CASE 1
-						目標値 = 150
-					CASE 2
-						目標値 = 300
-					CASE 3
-						目標値 = 500
-					CASE 4
-						目標値 = 800
-					CASE 5
-						目標値 = 1200
-					CASE 6
-						目標値 = 1700
-					CASE 7
-						目標値 = 2300
-					CASE 8
-						目標値 = 3000
-					CASE 9
-						目標値 = 4000
-					CASEELSE
-						BREAK
-				ENDSELECT
-				SIF 計算用EXP < 目標値
-					BREAK
-				ABL:対象:従順++
-				上昇済++
-			LOOP 1
-	ENDSELECT
-	SIF ABL:対象:LCOUNT > 10
-		ABL:対象:LCOUNT = 10
-	SIF 上昇済
-		PRINTFORML %NAME:対象%の%ABLNAME:LCOUNT%が{ABL:対象:LCOUNT}になった
-NEXT
-
-@SCHOOL_COMFILTER, 場所
-#DIMS DYNAMIC 場所
-#DIM DYNAMIC LCOUNT
-
-USINGFILTERG = 0
-
-VARSET COMFILTER, 1
-
-TRYCALLFORM SCHOOL_COMFILTER_%CSVNAMERPS(NO:TARGET)%, 場所
-
-
-FOR LCOUNT, 0, VARSIZE("TRAINNAME")
-	SELECTCASE TRAINNAME:LCOUNT
-		;ロケーション関係なく実行可能
-		{
-		CASE "愛撫", "クンニ", "指挿入れ", "フェラする", "下着扱きする", "手淫する",
-			 "パイズリする", "パイズリフェラする", "射精寸止め","お掃除フェラする", "アナル舐め", "アナル愛撫",
-			 "胸揉み", "乳首責め", "胸愛撫", "乳首舐め", "自慰", "胸自慰", "秘貝開帳", "自慰見せつけ", "秘貝開帳見せつけ",
-			 "キスする", "キスしてもらう", "情欲を煽る", "スキンシップ", "母乳飲み", "尻尾を撫でる",
-			 "ふたなり化", "バストサイズ変更", "コンドーム", "媚薬", "ローション注入", "後背位", "後背位アナル",
-			 "後背位させる", "後背位アナルさせる", "手淫", "フェラチオ", "イラマチオ", "下着扱き", "素股", "パイズリ", "パイズリフェラ",
-			 "縦パイズリ", "クンニさせる", "アナル愛撫させる", "アナルを舐めさせる", "兜合わせ", 
-			 "Gスポット刺激", "授乳手コキ", "前立腺刺激", "オナフェラ", "騎乗乳房自慰", "挿入Gスポ責め", "挿入子宮口責め", "正常位キス", "騎乗位キス",
-			 "正常位アナルキス", "騎乗位アナルキス", "後背位手淫", "騎乗位手淫", "後背位アナル手淫", "騎乗位アナル手淫", "正常位キスさせる",
-			 "逆レイプキス"
-		}
-			COMFILTER:LCOUNT = 0
-	ENDSELECT
-
-	;ベッドの有無
-	IF GROUPMATCH(場所, "自宅", "ホテル", "保健室", "体育倉庫")
-		SELECTCASE TRAINNAME:LCOUNT
-			{
-			CASE "正常位", "騎乗位", "下着ずらし挿入", "正常位アナル", "騎乗位アナル", "下着ずらし挿入アナル",
-				 "正常位させる", "逆レイプ", "正常位アナルさせる", "顔面騎乗する", "貝合わせ", "シックスナイン", "69パイズリ",
-			}
-				COMFILTER:LCOUNT = 0
-		ENDSELECT
-	ENDIF
-	;自宅とホテルは道具、風呂場使用可
-	IF GROUPMATCH(場所, "自宅", "ホテル")
-		SELECTCASE TRAINNAME:LCOUNT
-			{
-			CASE "ローター", "電気按摩", "バイブ", "ペニスバンド", "アナルバイブ", "乳首ローター",
-				 "お風呂場プレイ", "シャワー", "腸洗浄"
-			}
-				COMFILTER:LCOUNT = 0
-		ENDSELECT
-	ENDIF
-	;ローションを派手に使っても大丈夫な場所
-	IF GROUPMATCH(場所, "自宅", "ホテル", "青姦")
-		SELECTCASE TRAINNAME:LCOUNT
-			CASE "ローション"
-				COMFILTER:LCOUNT = 0
-		ENDSELECT
-	ENDIF
-	;自宅限定
-	IF GROUPMATCH(場所, "自宅")
-		SELECTCASE TRAINNAME:LCOUNT
-			CASE "お酒を飲ませる", "野外プレイ"
-				COMFILTER:LCOUNT = 0
-		ENDSELECT
-	ENDIF
-	;トイレ限定
-	IF GROUPMATCH(場所, "トイレ", "青姦")
-		SELECTCASE TRAINNAME:LCOUNT
-			CASE "放尿"
-				COMFILTER:LCOUNT = 0
-		ENDSELECT
-	ENDIF
-
-	SELECTCASE 場所
-		CASE "自宅", "ホテル", "トイレ", "保健室", "体育倉庫", "校長室", "理事長室", "青姦"
-		CASEELSE
-			;#;THROW 「%場所%」のコマンドフィルターが設定されていない
-	ENDSELECT
-NEXT
-
-@学園モード用コマンドテンプレ生成
-#DIM DYNAMIC LCOUNT
-#DIM DYNAMIC フィルター記録, 1000, 5
-
-CALL SCHOOL_COMFILTER, "自宅"
-FOR LCOUNT, 0, 1000
-	フィルター記録:LCOUNT:0 = COMFILTER:LCOUNT
-NEXT
-
-CALL SCHOOL_COMFILTER, "ホテル"
-FOR LCOUNT, 0, 1000
-	フィルター記録:LCOUNT:1 = COMFILTER:LCOUNT
-NEXT
-
-CALL SCHOOL_COMFILTER, "トイレ"
-FOR LCOUNT, 0, 1000
-	フィルター記録:LCOUNT:2 = COMFILTER:LCOUNT
-NEXT
-
-CALL SCHOOL_COMFILTER, "保健室"
-FOR LCOUNT, 0, 1000
-	フィルター記録:LCOUNT:3 = COMFILTER:LCOUNT
-NEXT
-
-CLEARLINE LINECOUNT
-
-FOR LCOUNT, 0, 1000
-	SIF フィルター記録:LCOUNT:0 && フィルター記録:LCOUNT:1 && フィルター記録:LCOUNT:2 && フィルター記録:LCOUNT:3
-		CONTINUE
-	PRINTL ;-------------------------------------------------
-	PRINTFORML ;%TRAINNAME:LCOUNT%
-	PRINTFORML ;\@ !フィルター記録:LCOUNT:0 ? 自宅, #\@\@ !フィルター記録:LCOUNT:1 ? ホテル, #\@\@ !フィルター記録:LCOUNT:2 ? トイレ, #\@\@ !フィルター記録:LCOUNT:3 ? 保健室, #\@で実行可能
-	PRINTL ;-------------------------------------------------
-	PRINTFORML @SCHOOL_COM_%TRAINNAME:LCOUNT%_KX1
-	PRINTL 
-NEXT
-
-OUTPUTLOG "SCHOOL_COM_KX1.ERB"
-
-;;;主人公に名前があるか
-@名前あり()
-#FUNCTION
-SIF CALLNAME:PLAYER == "あなた" || プレイヤー名無しフラグ
-	RETURNF 0
-RETURNF 1
 
 @グループ_インモラル計算, デバッグ
 #DIM DYNAMIC LCOUNT
@@ -2383,171 +612,6 @@ FOR LCOUNT, 0, 10
 	NEXT
 NEXT
 
-@夏休み, 月 = -1, 日 = -1
-#FUNCTION
-#DIM DYNAMIC 月
-#DIM DYNAMIC 日
-
-SIF 月 == -1
-	月 = MONTH
-SIF 日 == -1
-	日 = DAYS
-
-IF INRANGE(月*100+日, 722, 831)
-	RETURNF 1
-ELSE
-	RETURNF 0
-ENDIF
-
-@冬休み, 月 = -1, 日 = -1
-#FUNCTION
-#DIM DYNAMIC 月
-#DIM DYNAMIC 日
-
-SIF 月 == -1
-	月 = MONTH
-SIF 日 == -1
-	日 = DAYS
-
-IF INRANGE(月*100+日, 1224, 1231) || INRANGE(月*100+日, 101, 107)
-	RETURNF 1
-ELSE
-	RETURNF 0
-ENDIF
-
-@春休み, 月 = -1, 日 = -1
-#FUNCTION
-#DIM DYNAMIC 月
-#DIM DYNAMIC 日
-
-SIF 月 == -1
-	月 = MONTH
-SIF 日 == -1
-	日 = DAYS
-
-IF INRANGE(月*100+日, 325, 406)
-	RETURNF 1
-ELSE
-	RETURNF 0
-ENDIF
-
-
-;;;夏休み、冬休み、春休み判定
-@ISHOLIDAY_SCHOOL, 月 = -1, 日 = -1
-#FUNCTION
-#DIM DYNAMIC 月
-#DIM DYNAMIC 日
-
-SIF 月 == -1
-	月 = MONTH
-SIF 日 == -1
-	日 = DAYS
-
-RETURNF 夏休み(月, 日) | 冬休み(月, 日) | 春休み(月, 日)
-
-
-;;;登校日判定
-;;;休日でも長期休暇でもなければ1を返す
-@登校日, 年 = -1, 月 = -1, 日 = -1
-#FUNCTION
-#DIM DYNAMIC 年
-#DIM DYNAMIC 月
-#DIM DYNAMIC 日
-
-SIF 年 == -1
-	年 = YEAR
-SIF 月 == -1
-	月 = MONTH
-SIF 日 == -1
-	日 = DAYS
-
-IF !休日(年, 月, 日) && !ISHOLIDAY_SCHOOL(月, 日)
-	RETURNF 1
-ELSE
-	RETURNF 0
-ENDIF
-
-
-;;;出現率が設定されてるキャラからランダムで一人選出する 運命の人優先
-@出現キャラランダム選出
-#DIM DYNAMIC LCOUNT
-#DIM DYNAMIC 滞在キャラ, 1000
-
-FOR LCOUNT, 1, CHARANUM
-	SIF 出現率:LCOUNT && CSTR:LCOUNT:現在地 == ""
-		ARRAYSHIFT 滞在キャラ, 1, LCOUNT
-NEXT
-IF 滞在キャラ:0 != 0
-	IF FINDELEMENT(滞在キャラ, GETCHARANAME(運命の人)) >= 0
-		RETURN GETCHARANAME(運命の人)
-	ELSE
-		RETURN 滞在キャラ:(RAND:FINDELEMENT(滞在キャラ, 0))
-	ENDIF
-ENDIF
-
-RETURN 0
-
-;;;現在地フリーなキャラが一人でもいればtrue
-@キャラ現在地判定, キャラ名, キャラ名:1, キャラ名:2, キャラ名:3, キャラ名:4
-#FUNCTION
-#DIMS DYNAMIC キャラ名, 5
-#DIM DYNAMIC LCOUNT
-
-FOR LCOUNT, 0, VARSIZE("キャラ名")
-	SIF キャラ名:LCOUNT != "" && CSTR:GETCHARANAME(キャラ名:LCOUNT):現在地 == ""
-		RETURNF 1
-NEXT
-RETURNF 0
-
-;;;指定した学校の在校生をランダムで一人選出 呼ばれるたびに変わるため、使う場合は別変数に退避推奨
-@在校生ランダム選出, 学校, 特殊在校含
-#FUNCTION
-#DIM DYNAMIC LCOUNT
-#DIMS DYNAMIC 学校
-#DIM DYNAMIC 人数
-#DIM DYNAMIC リスト, 1000
-#DIM DYNAMIC 特殊在校含
-
-FOR LCOUNT, 1, CHARANUM
-	IF CSTR:LCOUNT:在校 == 学校
-		SIF CFLAG:LCOUNT:特殊在校 && !特殊在校含
-			CONTINUE
-		リスト:(人数++) = LCOUNT
-	ENDIF
-NEXT
-
-SIF 人数 == 0
-	RETURNF -1
-
-RETURNF リスト:(RAND:人数)
-
-;;;指定した学校の、指定した科目の教師を取得 複数居る場合はランダム
-@教師取得, 学校, 科目
-#FUNCTION
-#DIM DYNAMIC LCOUNT
-#DIMS DYNAMIC 学校
-#DIMS DYNAMIC 科目
-#DIM DYNAMIC 人数
-#DIM DYNAMIC リスト, 1000
-
-FOR LCOUNT, 1, CHARANUM
-	SIF CSTR:LCOUNT:在任 == 学校 && CSTR:LCOUNT:担当科目 == 科目
-		リスト:(人数++) = LCOUNT
-NEXT
-
-SIF 人数 == 0
-	RETURNF -1
-
-RETURNF リスト:(RAND:人数)
-
-@連絡先入手済み, 対象
-#FUNCTION
-#DIM DYNAMIC 対象
-
-SIF 連絡先:(NO:対象)
-	RETURNF 1
-
-RETURNF 0
 
 @学校リスト生成, 再生成
 #DIM 生成済み
@@ -2621,3 +685,227 @@ NEXT
 学校名:学校ID = BEMANI大学
 
 生成済み = 1
+
+@クラスメイト選出, 対象, 選出タイプ
+#DIM DYNAMIC 対象
+#DIMS DYNAMIC 選出タイプ
+;無所属が一番多くなるので余裕を持つ
+#DIM DYNAMIC クラスメイト, 300
+#DIM DYNAMIC 候補, 5
+#DIM DYNAMIC 人数
+#DIM DYNAMIC LCOUNT
+#DIM DYNAMIC LCOUNT2
+
+;第一引数のキャラと同じ学校の生徒を、第二引数で指定した条件で選出する
+;RESULT:0～4で最大5人返す 必要なぶんだけRESULTを参照すると良い
+
+SIF データベース参照中
+	RETURN
+
+;既にどこかのグループに入ってる場合は無効
+SIF 出現率:対象 == -1
+	RETURN
+;同行中も無効
+IF 同行者 == 対象
+	出現率:対象 = -1
+	RETURN
+ENDIF
+
+;グループ候補は出現率を-1に設定する
+出現率:対象 = -1
+
+人数 = 0
+
+;無所属と教師は判定しない(暫定)
+SIF CSTR:対象:在校 == ""
+	RETURN
+
+FOR LCOUNT, 1, CHARANUM
+	SIF CSTR:対象:在校 == CSTR:LCOUNT:在校
+		クラスメイト:(人数++) = LCOUNT
+NEXT
+
+;クラスメイト変数の順番をシャッフルする
+FOR LCOUNT, 0, 人数
+	SWAP クラスメイト:LCOUNT, クラスメイト:(RAND(LCOUNT, 人数))
+NEXT
+
+SELECTCASE 選出タイプ
+	;相性の良いクラスメイトを優先
+	;同値のキャラが複数いればランダムで選出（上で既にシャッフルしてある）
+	CASE "相性"
+		FOR LCOUNT, 0, 人数
+			;対象は除外
+			SIF クラスメイト:LCOUNT == 対象
+				CONTINUE
+			;既にグループ候補の場合は入れない
+			SIF 出現率:(クラスメイト:LCOUNT) == -1
+				CONTINUE
+			;現在地が確定してる場合も無理
+			SIF CSTR:(クラスメイト:LCOUNT):現在地 != ""
+				CONTINUE
+			FOR LCOUNT2, 0, 5
+				{
+				IF 候補:LCOUNT2 == 0 ||
+				相性値(クラスメイト:LCOUNT, 対象) > 相性値(候補:LCOUNT2, 対象) ||
+				相性値(対象, クラスメイト:LCOUNT) > 相性値(対象, 候補:LCOUNT2)
+				}
+					ARRAYSHIFT 候補, 1, クラスメイト:LCOUNT, LCOUNT2
+					;グループ候補は出現率を-1に設定する
+					出現率:(クラスメイト:LCOUNT) = -1
+					BREAK
+				ENDIF
+			NEXT
+		NEXT
+	;ランダム選出
+	CASEELSE
+		FOR LCOUNT, 0, 人数
+			;対象は除外
+			SIF クラスメイト:LCOUNT == 対象
+				CONTINUE
+			;既にグループ候補の場合は入れない
+			SIF 出現率:(クラスメイト:LCOUNT) == -1
+				CONTINUE
+			;現在地が確定してる場合も無理
+			SIF CSTR:(クラスメイト:LCOUNT):現在地 != ""
+				CONTINUE
+			ARRAYSHIFT 候補, 1, クラスメイト:LCOUNT
+		NEXT
+		ARRAYCOPY "クラスメイト", "候補"
+		FOR LCOUNT, 0, 5
+			出現率:(候補:LCOUNT) = -1
+		NEXT
+ENDSELECT
+
+RETURN 候補:0, 候補:1, 候補:2, 候補:3, 候補:4
+
+@グループキャラ選出, 対象, 選出タイプ
+#DIM DYNAMIC 対象
+#DIMS DYNAMIC 選出タイプ
+#DIM DYNAMIC 候補, 5
+#DIM DYNAMIC LCOUNT
+#DIM DYNAMIC LCOUNT2
+#DIM DYNAMIC 出現率記録用, 10000
+#DIM DYNAMIC 乱数
+
+;上のとほぼ同じだが、こちらは学校ごとではなく全体でグループを作る
+;ただし学校が同じでもない、相性が良いわけでもない、何も接点の無いキャラはグループにならない
+;RESULT:0～4で最大5人返す 必要なぶんだけRESULTを参照すると良い
+
+SIF データベース参照中
+	RETURN
+
+;既にどこかのグループに入ってる場合は無効
+SIF 出現率:対象 == -1
+	RETURN
+;同行中も無効
+IF 同行者 == 対象
+	出現率:対象 = -1
+	RETURN
+ENDIF
+
+;グループ候補は出現率を-1に設定する
+出現率:対象 = -1
+;マリィ、レイヴガール、トルマリンは選出されたら全員-1に設定
+;別のキャラから同時に呼ばれないようにする処理はまだ
+IF !GROUPMATCH(-1, GETCHARANAME("マリィ"), GETCHARANAME("レイヴガール"), GETCHARANAME("トルマリン"))
+	IF GROUPMATCH(対象, GETCHARANAME("マリィ"), GETCHARANAME("レイヴガール"), GETCHARANAME("トルマリン"))
+		出現率:GETCHARANAME("マリィ") = -1
+		出現率:GETCHARANAME("レイヴガール") = -1
+		出現率:GETCHARANAME("トルマリン") = -1
+	ENDIF
+ENDIF
+
+;番号が変わるので対象の値をNOにしておく
+対象 = NO:対象
+
+ARRAYCOPY "出現率", "出現率記録用"
+
+;キャラの順番をシャッフルする
+FOR LCOUNT, 1, CHARANUM
+	乱数 = RAND(LCOUNT, CHARANUM)
+	SWAPCHARA LCOUNT, 乱数
+	SWAP 出現率記録用:LCOUNT, 出現率記録用:乱数
+NEXT
+
+SELECTCASE 選出タイプ
+	;相性の良いキャラを優先
+	;同値のキャラが複数いればランダムで選出
+	CASE "相性"
+		FOR LCOUNT, 1, CHARANUM
+			;対象自身は除外
+			SIF LCOUNT == GETCHARA(対象)
+				CONTINUE
+			;既にグループ候補の場合は入れない
+			SIF 出現率記録用:LCOUNT == -1
+				CONTINUE
+			;現在地が確定してる場合も無理
+			SIF CSTR:LCOUNT:現在地 != ""
+				CONTINUE
+			;相性、学校、血縁のいずれかも接点が無いキャラは除外
+			SIF CSTR:GETCHARA(対象):在校 != "" && CSTR:GETCHARA(対象):在校 == CSTR:LCOUNT:在校
+				GOTO CLEAR
+			SIF CSTR:GETCHARA(対象):在任 != "" && CSTR:GETCHARA(対象):在任 == CSTR:LCOUNT:在任
+				GOTO CLEAR
+			SIF CFLAG:GETCHARA(対象):血縁コード && CFLAG:GETCHARA(対象):血縁コード == CFLAG:LCOUNT:血縁コード
+				GOTO CLEAR
+			SIF 相性値(GETCHARA(対象), LCOUNT) > 100
+				GOTO CLEAR
+			SIF 相性値(LCOUNT, GETCHARA(対象)) > 100
+				GOTO CLEAR
+			CONTINUE
+
+			$CLEAR
+			FOR LCOUNT2, 0, 5
+				{
+				IF 候補:LCOUNT2 == 0 ||
+				相性値(LCOUNT, GETCHARA(対象)) > 相性値(GETCHARA(候補:LCOUNT2), GETCHARA(対象)) ||
+				相性値(GETCHARA(対象), LCOUNT) > 相性値(GETCHARA(対象), GETCHARA(候補:LCOUNT2))
+				}
+					;こっちは後でキャラ番号戻るのでNOで入れる
+					ARRAYSHIFT 候補, 1, NO:LCOUNT, LCOUNT2
+					BREAK
+				ENDIF
+			NEXT
+		NEXT
+	;接点のあるキャラをランダム選出
+	CASEELSE
+		FOR LCOUNT, 1, CHARANUM
+			;対象自身は除外
+			SIF LCOUNT == GETCHARA(対象)
+				CONTINUE
+			;既にグループ候補の場合は入れない
+			SIF 出現率:LCOUNT == -1
+				CONTINUE
+			;現在地が確定してる場合も無理
+			SIF CSTR:LCOUNT:現在地 != ""
+				CONTINUE
+			;相性、学校、血縁のいずれかも接点が無いキャラは除外
+			SIF CSTR:GETCHARA(対象):在校 != "" && CSTR:GETCHARA(対象):在校 == CSTR:LCOUNT:在校
+				GOTO CLEARELSE
+			SIF CSTR:GETCHARA(対象):在任 != "" && CSTR:GETCHARA(対象):在任 == CSTR:LCOUNT:在任
+				GOTO CLEARELSE
+			SIF CFLAG:GETCHARA(対象):血縁コード && CFLAG:GETCHARA(対象):血縁コード == CFLAG:LCOUNT:血縁コード
+				GOTO CLEARELSE
+			SIF 相性値(GETCHARA(対象), LCOUNT) > 100
+				GOTO CLEARELSE
+			SIF 相性値(LCOUNT, GETCHARA(対象)) > 100
+				GOTO CLEARELSE
+			CONTINUE
+
+			$CLEARELSE
+			;こっちは後でキャラ番号戻るのでNOで入れる
+			ARRAYSHIFT 候補, 1, NO:LCOUNT
+		NEXT
+ENDSELECT
+
+;最後にNOでソートしなおす
+SORTCHARA NO
+
+;グループ候補は出現率を-1に設定する
+FOR LCOUNT, 0, 5
+	SIF 候補:LCOUNT
+		出現率:GETCHARA(候補:LCOUNT) = -1
+NEXT
+
+RETURN GETCHARA(候補:0), GETCHARA(候補:1), GETCHARA(候補:2), GETCHARA(候補:3), GETCHARA(候補:4)
