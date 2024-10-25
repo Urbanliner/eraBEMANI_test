@@ -248,15 +248,16 @@ IF ラブスコープ使用
 ENDIF
 
 
-@好感度色分け, 種類, 好感度値
+@好感度色分け, 種類, 好感度値, 黒
 #FUNCTIONS
 #DIMS DYNAMIC 種類
 #DIM DYNAMIC 好感度値
+#DIM DYNAMIC 黒
 SELECTCASE 種類
 	CASE "インモラル"
 		SELECTCASE 好感度値
-			CASE 0
-				RETURNF "0x404040"
+			CASE 1 TO 9
+				RETURNF ""
 			CASE 10 TO 29
 				RETURNF "lime"
 			CASE 30 TO 49
@@ -266,8 +267,6 @@ SELECTCASE 種類
 		ENDSELECT
 	CASE "既成事実"
 		SELECTCASE 好感度値
-			CASE 0
-				RETURNF "0x404040"
 			CASE 1 TO 4
 				RETURNF ""
 			CASE 5 TO 9
@@ -281,8 +280,6 @@ SELECTCASE 種類
 		ENDSELECT
 	CASEELSE
 		SELECTCASE 好感度値
-			CASE 0
-				RETURNF "0x404040"
 			CASE 1 TO 99
 				RETURNF ""
 			CASE 100 TO 299
@@ -295,6 +292,12 @@ SELECTCASE 種類
 				RETURNF "coral"
 		ENDSELECT
 ENDSELECT
+;0の場合
+IF 黒
+	RETURNF "black"
+ELSE
+	RETURNF "0x404040"
+ENDIF
 
 ;;;好感度上昇とメッセージ表示を行う
 @好感度上昇, 対象, 好感度種類, 上昇値
