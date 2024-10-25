@@ -20,6 +20,9 @@ RETURN 0
 #DIM DYNAMIC バストサイズ編集
 #DIM DYNAMIC 最大文字列長
 #DIM CONST 無所属 = VARSIZE("学校名")
+#DIM DYNAMIC 表示人数
+#DIM DYNAMIC ページ数
+#DIM DYNAMIC 在学総人数
 
 FOR LCOUNT, 0, VARSIZE("学校名")
 	SIF STRLENS(学校名:LCOUNT) > 最大文字列長
@@ -118,11 +121,21 @@ ENDSELECT
 $生徒選択
 SIF !INRANGE(選択校, 0, VARSIZE("学校名"))
 	RESTART
-CALL 学園_データベース表示, 選択校, リスト表示
+CALL 学園_データベース表示, 選択校, リスト表示, 表示人数, ページ数
 
 DRAWLINE
 PRINTPLAINFORM 　\@ 選択校 == 無所属 ? 無所属or社会人のキャラ # %学校名:選択校% \@　
-PRINT [-1] - 戻る
+
+CALL PRINTSPACE(ページ数, "[-7] 前ページ ")
+
+PRINT [-1] - 戻る 
+
+IF 選択校 == 無所属
+	CALL PRINTSPACE(表示人数 < 在学総人数("無所属"), "[-9] 次ページ")
+ELSE
+	CALL PRINTSPACE(表示人数 < 在学総人数(学校名:選択校), "[-9] 次ページ")
+ENDIF
+
 IF ITEM:ラブスコープ
 	SELECTCASE ラブスコープ使用
 		CASE 0
@@ -153,6 +166,12 @@ SELECTCASE RESULT
 		GOTO 生徒選択
 	CASE -8
 		INVERTBIT バストサイズ編集, 0
+		GOTO 生徒選択
+	CASE -7
+		ページ数--
+		GOTO 生徒選択
+	CASE -9
+		ページ数++
 		GOTO 生徒選択
 ENDSELECT
 
@@ -230,13 +249,15 @@ PRINTW クリック・Enterで戻る
 GOTO 生徒選択
 
 
-@学園_データベース表示, 選択校, リスト表示
+@学園_データベース表示, 選択校, リスト表示, 表示人数, ページ数
 #DIM DYNAMIC LCOUNT
 #DIM DYNAMIC 選択校
 #DIM DYNAMIC 計算済
 #DIM DYNAMIC リスト表示
 #DIM CONST 無所属 = VARSIZE("学校名")
 #DIMS DYNAMIC 表示用
+#DIM REF 表示人数
+#DIM REF ページ数
 
 #DIM DYNAMIC 表示キャラリスト, 10000
 #DIM DYNAMIC COUNTMODE
@@ -365,7 +386,8 @@ IF リスト表示
 		ENDIF
 	ENDIF
 
-	FOR LCOUNT, 0, 人数
+	表示人数 = 0
+	FOR LCOUNT, ページ数*50, 人数
 		表示用 = 
 		IF !LCOUNT
 			IF 選択校 == 無所属
@@ -432,10 +454,15 @@ IF リスト表示
 			CALL 好感度表示, 対象
 		ENDIF
 		PRINTL
+		表示人数++
+		SIF 表示人数 >= 50
+			BREAK
 	NEXT
 ELSE
-	PRINTFORML □\@ 選択校 == 無所属 ? 無所属or社会人のキャラ # %学校名:選択校%の在校生 \@
-	FOR LCOUNT, 0, 人数
+	SIF ページ数 == 0
+		PRINTFORML □\@ 選択校 == 無所属 ? 無所属or社会人のキャラ # %学校名:選択校%の在校生 \@
+	表示人数 = 0
+	FOR LCOUNT, ページ数*50, 人数
 		IF 選択校 != 無所属
 			SIF LCOUNT == 生徒人数 && 教師人数
 				PRINTFORML □%学校名:選択校%の教師
@@ -445,9 +472,15 @@ ELSE
 		PRINTFORM 　[{表示キャラリスト:LCOUNT, 最大桁数}] 
 		CALL SNAME(表示キャラリスト:LCOUNT, 1)
 		PRINTL 
+		表示人数++
+		SIF 表示人数 >= 50
+			BREAK
 	NEXT
 ENDIF
 
+表示人数 = LCOUNT
+
+RETURN
 
 @リスト_バストサイズ, 対象
 #DIM DYNAMIC 対象
@@ -522,3 +555,19 @@ ELSE
 	CALL PRINTCOLOR, @"{好感度値, 10}", 好感度色分け("インモラル", 好感度値)
 ENDIF
 PRINT |
+
+@在学総人数, 学園
+#FUNCTION
+#DIMS DYNAMIC 学園
+#DIM DYNAMIC LCOUNT
+#DIM DYNAMIC 総数
+
+IF 学園 == "無所属"
+	FOR LCOUNT, 0, CHARANUM
+		SIF CSTR:LCOUNT:在校 == "" && CSTR:LCOUNT:在任 == ""
+			総数++
+	NEXT
+	RETURNF 総数
+ELSE
+	RETURNF CMATCH(CSTR:在校, 学園)+CMATCH(CSTR:在任, 学園)
+ENDIF
