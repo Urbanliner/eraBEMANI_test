@@ -701,7 +701,7 @@ ENDSELECT
 @SCHOOL_MESSAGE_八牌麻雀_開始
 PRINTFORM %CALLNAME:TARGET%は
 IF GROUPMATCH("麻雀ファイトガール", CSTR:登場作品, CSTR:登場作品２, CSTR:登場作品３)
-	PRINTFORMW ファイトガールとしての自覚を持ちつつ、%CALLNAME:PLAYER%からの挑戦を受けて立つ
+	PRINTFORMW ファイトガールとしての自覚を持って、%CALLNAME:PLAYER%からの挑戦を受けて立つ
 ELSEIF TALENT:遊び人
 	PRINTFORMW 不敵な笑みを見せ、%CALLNAME:PLAYER%との真剣勝負を受けてくれた
 ELSE
@@ -711,7 +711,7 @@ ENDIF
 @SCHOOL_MESSAGE_八牌麻雀_勝利
 PRINTFORM %CALLNAME:PLAYER%は
 IF GROUPMATCH("麻雀ファイトガール", CSTR:登場作品, CSTR:登場作品２, CSTR:登場作品３)
-	PRINTFORMW ファイトガールとの対局に勝利した。%CALLNAME:TARGET%は%CALLNAME:PLAYER%の腕前も含めて快く評価している
+	PRINTFORMW ファイトガールとの対局に勝利した。%CALLNAME:TARGET%は%CALLNAME:PLAYER%の腕前も含めて褒めてくれた
 ELSEIF TALENT:遊び人
 	PRINTFORMW なんとか%CALLNAME:TARGET%に勝つことができた。%CALLNAME:TARGET%はその度胸を見て、大いに喜んでくれたようだ
 ELSE
@@ -721,7 +721,7 @@ ENDIF
 @SCHOOL_MESSAGE_八牌麻雀_敗北
 PRINTFORM %CALLNAME:PLAYER%は
 IF GROUPMATCH("麻雀ファイトガール", CSTR:登場作品, CSTR:登場作品２, CSTR:登場作品３)
-	PRINTFORMW ファイトガール相手には敵わなず敗北してしまった。それでも%CALLNAME:TARGET%は感謝の言葉を掛けてくれた
+	PRINTFORMW ファイトガール相手には敵わず敗北してしまった。それでも%CALLNAME:TARGET%と%CALLNAME:PLAYER%にとって良い対局だった
 ELSEIF TALENT:遊び人
 	PRINTFORMW どう足掻いても%CALLNAME:TARGET%に負けてしまった。%CALLNAME:TARGET%は慰める様な一言を掛けて立ち去った…
 ELSE
