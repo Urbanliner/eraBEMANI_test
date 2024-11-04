@@ -1737,18 +1737,20 @@ ELSE
 	;従順LV3未満
 	IF ABL:従順 < 3
 		PRINTFORM 自慰を命令すると%CALLNAME:TARGET%は
-		;プライド高い
-		SIF TALENT:プライド高い
-			PRINT プライドの高さを見せながら
-		;反抗的
-		SIF TALENT:反抗的
-			PRINT 反抗的な態度で
-		IF TEQUIP:アイマスク || TALENT:臆病
-			PRINT 拒んだが、
-		ELSE
-			PRINT 睨んできたが、
+		IF !上級売春中
+			;プライド高い
+			SIF TALENT:プライド高い
+				PRINT プライドの高さを見せながら
+			;反抗的
+			SIF TALENT:反抗的
+				PRINT 反抗的な態度で
+			IF TEQUIP:アイマスク || TALENT:臆病
+				PRINT 拒んだが、
+			ELSE
+				PRINT 睨んできたが、
+			ENDIF
+			PRINT 再度の命令に渋々
 		ENDIF
-		PRINT 再度の命令に渋々
 	ELSE
 		PRINTFORM 調教の成果が出たか、%CALLNAME:TARGET%は命令に従って、
 	ENDIF
