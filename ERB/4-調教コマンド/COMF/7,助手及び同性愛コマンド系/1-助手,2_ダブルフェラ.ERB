@@ -14,6 +14,9 @@ SIF TEQUIP:ゲームセンター && !TEQUIP:トイレ
 コマンド実行条件 += "実行者が助手じゃないと実行できない/"
 SIF PLAYER == MASTER
 	COMRESULT = 0
+;助手がいない場合も弾く
+SIF ASSI < 1
+	COMRESULT = 0
 ;奉仕対象がペニス無いとダメ
 コマンド実行条件 += "主人に男性器が必要/"
 SIF !PENIS(奉仕対象)
