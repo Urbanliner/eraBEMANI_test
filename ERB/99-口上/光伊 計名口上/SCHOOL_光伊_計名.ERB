@@ -1211,9 +1211,69 @@ ENDSELECT
 ;待ち合わせの連絡時
 @SCHOOL_光伊_計名_待ち合わせ
 TRYCALLFORM SCHOOL_MESSAGE_待ち合わせ
+IF TALENT:恋慕 || 好感度:既成事実
+	SELECTCASE RAND:3
+		CASE 0
+			PRINTFORML 「ランチだけでも遊びならいつでもええよ～」
+			PRINTFORMW 「\@CFLAG:インモラル >= 30 ? ホテルね…その話聞いてたらますますしたくなるっちゅうもんやないか # うんうん、私少しズボラやからな。遅れない様に気ぃ付けないと\@」
+		CASE 1
+			IF ISHOLIDAY_SCHOOL()
+				PRINTFORMW 「休校日だからいつでも行けるのってええな―。羨まし…というか丁度良い具合に休みやけど、時間作っておこか」
+			ELSE
+				PRINTFORML 「\@GROUPMATCH(DOW(),"土", "日") ? 週末どこかに？いいね。シフト表も丁度休みなっとるし…君に合いたいな # お、ええの？会う約束してくれる？\@」
+				PRINTFORMW 「すぐに行ける訳やないから、空いた時間に合わせておくわ。社長には上手く言って有給取るか」
+			ENDIF
+		CASE 2
+			PRINTFORMW 「デートのお誘いか。私はいいとして、場所はどないする？」
+	ENDSELECT
+ELSE
+	PRINTDATAW
+		DATA 「そうだね……私も仕事があるから、時間は出来るだけ遅くならない方がいいな」
+		DATA 「他に遊ぶ所ならどこでも良いんだけど…え、それでいいのかい」
+		DATA 「ビストローバーもいいけど喫茶店の方が良いかな。なんでかってそれは…アイツの眼が気になるからさ……」
+	ENDDATA
+ENDIF
 ;合流時
 @SCHOOL_光伊_計名_合流
-TRYCALLFORM SCHOOL_MESSAGE_合流
+IF TALENT:恋慕 || 好感度:既成事実
+	SELECTCASE CSTR:PLAYER:現在地
+		CASE "雀喫茶ローシャンテ"
+			PRINTFORML ローシャンテ店内でケイナと合流した%CALLNAME:PLAYER%。\@ターン == "昼" ? ランチタイムで雀ドロイド達がせわしなく動き回っている… # 麻雀ファイト観戦に見入る客、深々と対局する客で別れているようだ…\@
+			PRINTFORMW 「おまたせ、ここはいつ来ても独特な雰囲気やな」
+		CASE "ルーテージ図書館"
+			PRINTFORMW 正門前でケイナが待っている。予定通り合流した二人は図書館の中へ入っていく
+		CASE "ビストローバー"
+			SELECTCASE RAND:2
+				CASE 0
+					PRINTFORML ビストローバーの入り口付近で待ち合わせした%CALLNAME:PLAYER%、無事ケイナと合流する事が出来た
+					PRINTFORMW 「ジルチにダル絡みされないことを祈るしかあらへんな…」
+				CASEELSE
+					PRINTFORML 「ビストローバーなら早いとこ合流し――げぇ、ジルチ！」
+					PRINTFORMW 出会い頭に青ざめるケイナ、事情を察したジルチはお節介にも%CALLNAME:PLAYER%の元まで連れてきたようだ。店内で待ち合わせしたこちらも恥しくなってくる…
+					PRINTFORML 「よぉ\@SEX(PLAYER) == 2 ? お嬢様 # 少年\@、愛しのケイナが来てくれたぜ。デート場所決めてないなら俺様の力貸してやろうか？フフフ…」
+					PRINTFORMW 「結構だ、\@ターン == "昼" ? 今日はランチ # ディナー\@だけだから下がってくれ……」
+			ENDSELECT
+		CASE "クラブレジデント", "ライブハウス", "On_the_FMスタジオ"
+			PRINTFORML タイミング良く合流したケイナと%CALLNAME:PLAYER%の前には長蛇の列が出来ている。どうやらライブハウスでの入場待ちだったようだ
+			PRINTFORMW 「今調べたら\@CSTR:PLAYER:現在地 == "On_the_FMスタジオ" ? 人気配信者とのコラボラジオ配信 # 人気ユニットのライブ\@らしいな。私達も貴重な瞬間を楽しもうか」
+		;CASE "ドッグラン", "猫カフェ"
+		;あり得ない場所での待ち合わせ場所に合流時
+		;いやそうは…なっとるやろがい！
+		;CASE "神崎家の道場", "Deuilの事務所", "ミラクル☆4の事務所", "マジカル☆4の事務所", "にじっ娘の事務所", "某社の広報部", "マジックアカデミーの寮", "アクアブルー城"
+		;	PRINTFORML 物々しい雰囲気だが、どうやら%CALLNAME:PLAYER%にとっては顔なじみの場所らしい
+		;	PRINTFORMW えっ、ここ関係者以外立ち入り禁止じゃ！？…君の顔パスでどうにかなるって言うんなら……大丈夫？」
+		CASE "月", "北極" ,"ルイナスルーム", "過去", "メインフレーム", "ピーコッド号艇内", "オリンピアスコロニー","地獄超特急ステーション", "あさきの世界", "シノバズアイランド", "トリコロシティ", "お菓子の家", "アレキサンドリア"
+			PRINTFORMW 待ち合わせ場所にしては通常ありえない場所まで来てしまった二人。ケイナはとりあえず%CALLNAME:PLAYER%の案内に従う事にした…
+		CASEELSE
+			TRYCALLFORM SCHOOL_MESSAGE_合流
+	ENDSELECT
+ELSE
+	PRINTDATAW
+		DATAFORM 「\@GROUPMATCH(ターン, "朝", "昼") ? 遅れてすまない、徹夜明けで眠気が…ふわぁ…… # お待たせ、丁度良いタイミングだったね\@」
+		DATAFORM 「\@CSTR:PLAYER:現在地 == "ゲームセンター" ? 行き慣れてる場所だと良いよね。それで、今日もIIDXする？ # 待ってたよ、私も丁度来たばかりなんだ\@」
+		;DATA 「」
+	ENDDATA
+ENDIF
 ;解散
 @SCHOOL_光伊_計名_別れる
 TRYCALLFORM SCHOOL_MESSAGE_別れる
