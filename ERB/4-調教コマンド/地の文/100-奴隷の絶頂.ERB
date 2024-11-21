@@ -866,6 +866,10 @@ ELSEIF NOWEX:射精
 						PRINTFORML 凝固した体液から解放された%CALLNAME:TARGET%は、それまで尿道を堰き止めていた粘液ごと多量の精液を噴き出した……
 					ENDIF
 				ENDIF
+			CASE "ローションガーゼ"
+				PRINTFORML %CALLNAME:TARGET%は亀頭への責め苦に絶えきれず、潮を噴く前に射精してしまい、白いガーゼを白濁した精液で汚した……
+			CASE "触手亀頭責め"
+				PRINTFORML %CALLNAME:TARGET%は亀頭を執拗に責められる苦痛に悶えながらも、触手の口の中に射精してしまった……
 			;コマンドで射精する部分は上で網羅しているので、ここではオナホ等装備中にどうでもいいコマンドで射精した場合を参照
 			CASEELSE
 				$ELSECUM
@@ -1221,7 +1225,11 @@ IF NOWEX:潮噴き
 				PRINTFORML 強い絶頂に達する%CALLNAME:TARGET%は去勢痕の尿道から勢いよく潮を噴いた……
 		ENDSELECT
 	ELSE
-		PRINTFORML 射精後のペニスへの容赦の無い刺激に、%CALLNAME:TARGET%は鈴口から透明な潮を噴き出した……
+		IF SELECTCOMS == "ローションガーゼ"
+			PRINTFORML ローションガーゼで亀頭を責め続けられた%CALLNAME:TARGET%は悶えながら大量の潮を噴いた……
+		ELSE
+			PRINTFORML 射精後のペニスへの容赦の無い刺激に、%CALLNAME:TARGET%は鈴口から透明な潮を噴き出した……
+		ENDIF
 	ENDIF
 ENDIF
 

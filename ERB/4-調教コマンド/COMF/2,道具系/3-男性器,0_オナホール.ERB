@@ -40,7 +40,7 @@ SIF ITEM:オナホール <= 0
 SIF !PENIS(TARGET)
 	COMRESULT = 0
 ;少なくとも半立ち状態じゃないとダメ
-コマンド実行条件 += @"対象の勃起{PALAMLV:2}未満だと実行できない/"
+コマンド実行条件 += @"対象の勃起LV{PALAMLV:2}未満だと実行できない/"
 SIF PALAM:勃起 < PALAMLV:2
 	COMRESULT = 0
 

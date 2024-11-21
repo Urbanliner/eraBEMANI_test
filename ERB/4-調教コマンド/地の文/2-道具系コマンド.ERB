@@ -706,6 +706,23 @@ ELSE
 ENDIF
 
 ;-------------------------------------------------
+;ローションガーゼ
+;-------------------------------------------------
+@MESSAGE_COM_ローションガーゼ
+IF PREVCOMS == "ローションガーゼ"
+	PRINTFORMW %CALLNAME:PLAYER%は悶える%CALLNAME:TARGET%の亀頭をローションガーゼで執拗に責め続けた……
+ELSE
+	PRINTFORM %CALLNAME:PLAYER%はガーゼにローションを垂らし、
+	SIF CFLAG:賢者タイム
+		PRINT 射精したばかりの
+	IF TALENT:体格 == 1
+		PRINTFORMW %CALLNAME:TARGET%のペニスの包皮を剥いて、敏感な亀頭をガーゼで擦った……
+	ELSE
+		PRINTFORMW %CALLNAME:TARGET%の亀頭をガーゼで擦った……
+	ENDIF
+ENDIF
+
+;-------------------------------------------------
 ;アナルバイブ
 ;-------------------------------------------------
 @MESSAGE_COM_アナルバイブ

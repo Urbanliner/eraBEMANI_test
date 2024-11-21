@@ -685,12 +685,12 @@ SELECTCASE BR:サドマゾ固定
 	CASE 1
 		TALENT:サド = 1
 		TALENT:マゾ = 0
-		ABL:サドっ気 = MAX(ABL:サドっ気, ABL:マゾっ気)
+		ABL:サドっ気 = RAND(6, 11)
 		ABL:マゾっ気 = 0
 	CASE 2
 		TALENT:サド = 0
 		TALENT:マゾ = 1
-		ABL:マゾっ気 = MAX(ABL:サドっ気, ABL:マゾっ気)
+		ABL:マゾっ気 = RAND(6, 11)
 		ABL:サドっ気 = 0
 ENDSELECT
 
@@ -1134,25 +1134,34 @@ SELECTCASE SELECTCOMS
 		TFLAG:満足度 += 20+技巧レベル+性格レベル/2+ABL:Ｖ感覚/2
 		TFLAG:上級売春収入値 += 100*ABL:Ｖ感覚
 		IF TFLAG:コマンド破瓜
-			TFLAG:満足度 += 25+技巧レベル
+			TFLAG:満足度 += 25*技巧レベル
 			TFLAG:上級売春収入値 += 300*技巧レベル/2
 		ENDIF
 		絶頂満足度 = 20
 		絶頂追加料金 = 400
 	CASE "アナルバイブ"
 		TFLAG:満足度 += 15+技巧レベル+性格レベル/2+ABL:Ａ感覚/2
-		TFLAG:上級売春収入値 += 100+ABL:Ａ感覚
+		TFLAG:上級売春収入値 += 100*ABL:Ａ感覚
 		IF TALENT:マゾ
 			TFLAG:満足度 += 5*ABL:Ａ感覚
-			TFLAG:上級売春収入値 += 50+ABL:Ａ感覚
+			TFLAG:上級売春収入値 += 50*ABL:Ａ感覚
 		ENDIF
 		絶頂満足度 = 20
 		絶頂追加料金 = 400
 	CASE "乳首ローター"
 		TFLAG:満足度 += 5+ 技巧レベル+性格レベル/3+ABL:Ｂ感覚/2
-		TFLAG:上級売春収入値 += 80+ABL:Ｂ感覚
+		TFLAG:上級売春収入値 += 80*ABL:Ｂ感覚
 		絶頂満足度 = 10
 		絶頂追加料金 = 300
+	CASE "ローションガーゼ"
+		TFLAG:満足度 += 5+技巧レベル*2+性格レベル/2+ABL:Ｃ感覚
+		TFLAG:上級売春収入値 += 50*(ABL:Ｃ感覚+ABL:マゾっ気)
+		IF TALENT:マゾ
+			TFLAG:満足度 += 3*(ABL:Ｃ感覚+ABL:マゾっ気)
+			TFLAG:上級売春収入値 += 50*(ABL:Ｃ感覚+ABL:マゾっ気)
+		ENDIF
+		絶頂満足度 = 20
+		絶頂追加料金 = 400
 	CASE "コンドーム"
 		TFLAG:満足度 -= 3
 	CASE "バイブ被挿入"
