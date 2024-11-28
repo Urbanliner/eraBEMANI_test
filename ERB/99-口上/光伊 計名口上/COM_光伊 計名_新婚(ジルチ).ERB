@@ -4704,6 +4704,14 @@ IF TEQUIP:女装 == 0
 						PRINTFORMW 「ウェーイ！って言ってみろよケイナ、気分ブチ上がるぜ」
 						PRINTFORMW 「\@ABL:メス度 >= 4 ? ウェーイ！ジルチ、萌えとるか～ # 私、そない陽キャやないし…う……ウェーイ……これで満足？\@」
 				ENDSELECT
+			CASE "サキュバスチアコス"
+				SELECTCASE ABL:メス度
+					CASE IS <= 3
+						PRINTFORMW 「これでチアガール衣裳とか、訳の分からん構造しとるな。レオタード…尻が食い込んで恥ずかしい…」
+					CASE IS >= 4
+						PRINTFORML 「ふーん…ジルチぃ、私にけったいな格好させて恥ずかしくないんか？」
+						PRINTFORMW 「今ので勃起してるのバレバレや」
+				ENDSELECT
 		ENDSELECT
 	ENDIF
 ;解除時

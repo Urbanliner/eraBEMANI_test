@@ -111,6 +111,7 @@ SELECTCASE TEQUIP:女装
 		PRINTL [7] - ナース服
 		PRINTL [8] - 体操服+ブルマ
 		PRINTL [9] - ギャル風制服
+		PRINTL [10] - サキュバスチアコス
 		SIF ISSKIP()
 			RETURN
 		BINPUT
@@ -195,6 +196,26 @@ SELECTCASE TEQUIP:女装
 				CSTR:足元 = ルーズソックス
 				CFLAG:上着パイズリ = 6
 				CFLAG:挿入可 = 1
+			CASE 10
+				;羽・尻尾持ちには部分的に付与
+				IF TALENT:羽 && TALENT:尻尾
+					CSTR:特殊 = 悪魔の角カチューシャ
+				ELSEIF TALENT:羽
+					CSTR:特殊 = 悪魔の尻尾
+				ELSEIF TALENT:尻尾
+					CSTR:特殊 = 悪魔の羽
+				ELSE
+					CSTR:特殊 = 造り物の悪魔装飾
+				ENDIF
+				CSTR:上半身上着 = 付け襟
+				CSTR:下半身上着 = ミニスカート
+				CSTR:全身上着 = ハイレグレオタード
+				CSTR:上半身下着 =
+				CSTR:下半身下着 =
+				CSTR:足元 = ニーソックス
+				CFLAG:上着パイズリ = 4
+				CFLAG:挿入可 = 1
+				CFLAG:着衣併用 = 2
 		ENDSELECT
 		FOR LCOUNT, 0, 7
 			IF CSTR:(CSTR始点+LCOUNT) != ""

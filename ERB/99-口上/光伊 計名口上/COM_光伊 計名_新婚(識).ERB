@@ -3718,6 +3718,16 @@ IF TEQUIP:女装 == 0
 							PRINTFORMW ケイナは悪戯っぽく嗤っている…
 						ENDIF
 				ENDSELECT
+			CASE "サキュバスチアコス"
+				SELECTCASE ABL:メス度
+					CASE IS <= 3
+						PRINTFORML 「露出度高そうだけど、どうかな」
+						PRINTFORML 「どうかな、って言われても……か、下半身がもうやばい！あかんて…恥ずかしゅうなる！」
+						PRINTFORMW 「着るのに苦労するわ……」
+					CASE IS >= 4
+						PRINTFORML 「これを勧めるとは識も案外ええ趣味しとるなぁ。あとは尻を突き上げるポーズ？」
+						PRINTFORMW 「何だか楽しゅうなってきた…」
+				ENDSELECT
 		ENDSELECT
 	ENDIF
 ;解除時
