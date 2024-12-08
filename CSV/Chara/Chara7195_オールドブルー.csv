@@ -4,8 +4,8 @@
 CSTR,英語名,Oldblue
 CSTR,英語呼び名,Oldblue
  
-;価格と体力の数字はTwice up Scenery紫のノーツ数から
-フラグ,価格,22500
+;価格と体力の数字はTwice up Scenery紫のノーツ数から　初心者向けかも
+フラグ,価格,2250
  
 基礎,体力,2250
 基礎,気力,3000
