@@ -465,6 +465,8 @@ SELECTCASE MONTH
 			CASE 20
 				HOLIDAY = 春分の日
 				HOLIDAY:1 = 「ときめきアイドル」サービス開始日
+			CASE 22
+				HOLIDAY = 「麻雀ファイトガール」稼動記念日
 			CASE 21
 				HOLIDAY = KONAMI創立記念日
 			;23日
@@ -473,6 +475,7 @@ SELECTCASE MONTH
 			;27日
 			CASE 27
 				HOLIDAY = 「Dance Evolution ARCADE」稼働記念日
+				HOLIDAY:1 = 「ポラリスコード」稼動記念日
 		ENDSELECT
 	;4月
 	CASE 4
@@ -537,6 +540,7 @@ SELECTCASE MONTH
 			;16日
 			CASE 16
 				HOLIDAY = 「CHUNITHM」稼働記念日
+				HOLIDAY:1 = 「イロドリミドリ」結成記念日
 			;17日
 			CASE 17
 				HOLIDAY = 「BeatStream」稼働記念日
@@ -547,6 +551,9 @@ SELECTCASE MONTH
 			CASE 24
 				HOLIDAY = 「jubeat」稼働記念日
 				HOLIDAY:1 = 「クイズマジックアカデミー」稼働記念日
+			;26日
+			CASE 26
+				HOLIDAY = 「オンゲキ」稼動記念日
 		ENDSELECT
 		;第三月曜日
 		IF DAYS == NO_DOW(3, "月")
@@ -559,6 +566,9 @@ SELECTCASE MONTH
 			;11日
 			CASE 11
 				HOLIDAY = 山の日
+			;12日
+			CASE 12
+				HOLIDAY = 「オトメディウス」稼動記念日
 			;13～15日
 			CASE 13 TO 15
 				HOLIDAY = お盆
@@ -566,6 +576,8 @@ SELECTCASE MONTH
 	;9月
 	CASE 9
 		SELECTCASE DAYS
+			CASE 5
+				HOLIDAY = 「ボンバーガール」稼動記念日
 			CASE 12
 				HOLIDAY = 「ParaParaParadise」稼働記念日
 			;面倒だから23日
@@ -594,6 +606,9 @@ SELECTCASE MONTH
 	;10月
 	CASE 10
 		SELECTCASE DAYS
+			;29日
+			CASE 29
+				HOLIDAY = 「MAD RAT DEAD」発売記念日
 			;31日
 			CASE 31
 				HOLIDAY = ハロウィン
@@ -633,9 +648,15 @@ SELECTCASE MONTH
 	;12月 天皇誕生日はちょっと様子を見るので見送り
 	CASE 12
 		SELECTCASE DAYS
+			;2日
+			CASE 2
+				HOLIDAY =「CROSS×BEATS」稼動記念日
 			;10日
 			CASE 10
 				HOLIDAY = 「MÚSECA」稼働記念日
+			;12日
+			CASE 12
+				HOLIDAY = 「チェイスチェイスジョーカーズ」稼動記念日
 			;24日
 			CASE 24
 				HOLIDAY = クリスマス・イブ
