@@ -267,6 +267,52 @@ FOR LCOUNT, 0, VARSIZE("CSTR")
 						ENDIF
 						PRINTS " "
 				ENDSELECT
+				SELECTCASE CSTRNAME:LCOUNT
+					CASE "特殊"
+						IF 服装プリセット > 1
+							表示用変数 '= \@ CFLAG:@"耐水{服装プリセット}" & 1 ? ON # OFF \@
+						ELSE
+							表示用変数 '= \@ CFLAG:耐水 & 1 ? ON # OFF \@
+						ENDIF
+					CASE "上半身上着"
+						IF 服装プリセット > 1
+							表示用変数 '= \@ CFLAG:@"耐水{服装プリセット}" & 2 ? ON # OFF \@
+						ELSE
+							表示用変数 '= \@ CFLAG:耐水 & 2 ? ON # OFF \@
+						ENDIF
+					CASE "下半身上着"
+						IF 服装プリセット > 1
+							表示用変数 '= \@ CFLAG:@"耐水{服装プリセット}" & 4 ? ON # OFF \@
+						ELSE
+							表示用変数 '= \@ CFLAG:耐水 & 4 ? ON # OFF \@
+						ENDIF
+					CASE "全身上着"
+						IF 服装プリセット > 1
+							表示用変数 '= \@ CFLAG:@"耐水{服装プリセット}" & 8 ? ON # OFF \@
+						ELSE
+							表示用変数 '= \@ CFLAG:耐水 & 8 ? ON # OFF \@
+						ENDIF
+					CASE "上半身下着"
+						IF 服装プリセット > 1
+							表示用変数 '= \@ CFLAG:@"耐水{服装プリセット}" & 16 ? ON # OFF \@
+						ELSE
+							表示用変数 '= \@ CFLAG:耐水 & 16 ? ON # OFF \@
+						ENDIF
+					CASE "下半身下着"
+						IF 服装プリセット > 1
+							表示用変数 '= \@ CFLAG:@"耐水{服装プリセット}" & 32 ? ON # OFF \@
+						ELSE
+							表示用変数 '= \@ CFLAG:耐水 & 32 ? ON # OFF \@
+						ENDIF
+					CASE "足元"
+						IF 服装プリセット > 1
+							表示用変数 '= \@ CFLAG:@"耐水{服装プリセット}" & 64 ? ON # OFF \@
+						ELSE
+							表示用変数 '= \@ CFLAG:耐水 & 64 ? ON # OFF \@
+						ENDIF
+				ENDSELECT
+				PRINTBUTTON @"[耐水フラグ]:%表示用変数%", @"耐水%CSTRNAME:LCOUNT%{服装プリセット}"
+				PRINTS " "
 			ENDIF
 			PRINTL 
 	ENDSELECT
@@ -331,7 +377,10 @@ $LOOP
 INPUTS
 CLEARLINE 1
 選択文字列 = %RESULTS%
-IF STRFIND(選択文字列, "挿入可") >= 0
+IF STRFIND(選択文字列, "耐水") >= 0
+	選択文字列 '= SUBSTRINGU(RESULTS, 0, STRLENSU(RESULTS) - LOG10(DIG_SEP(RESULTS))-1)
+	付随番号 = DIG_SEP(RESULTS)
+ELSEIF STRFIND(選択文字列, "挿入可") >= 0
 	選択文字列 = 挿入可
 	付随番号 = DIG_SEP(RESULTS)
 ELSEIF STRFIND(選択文字列, "着衣併用") >= 0
@@ -581,6 +630,57 @@ SELECTCASE 選択文字列
 		PRINTL [14] - スク水・競泳水着等+スリットのようになってる
 		BINPUT
 		CFLAG:@"%表示用変数%パイズリ\@ 付随番号 > 1 ? {付随番号} #\@" = RESULT
+		GOTO RESTART
+	CASE "耐水特殊", "耐水上半身上着", "耐水下半身上着", "耐水全身上着", "耐水上半身下着", "耐水下半身下着", "耐水足元"
+		表示用変数 '= SUBSTRINGU(選択文字列,2, STRLENSU(選択文字列)-2)
+		PRINTFORML %表示用変数%のフラグを設定してください
+		PRINTL [0] - OFF
+		PRINTL [1] - ON
+		BINPUT
+		SELECTCASE 選択文字列
+			CASE "耐水特殊"
+				IF RESULT
+					SETBIT CFLAG:@"耐水\@ 付随番号 > 1 ? {付随番号} #\@" , 0
+				ELSE
+					CLEARBIT CFLAG:@"耐水\@ 付随番号 > 1 ? {付随番号} #\@" , 0
+				ENDIF
+			CASE "耐水上半身上着"
+				IF RESULT
+					SETBIT CFLAG:@"耐水\@ 付随番号 > 1 ? {付随番号} #\@" , 1
+				ELSE
+					CLEARBIT CFLAG:@"耐水\@ 付随番号 > 1 ? {付随番号} #\@" , 1
+				ENDIF
+			CASE "耐水下半身上着"
+				IF RESULT
+					SETBIT CFLAG:@"耐水\@ 付随番号 > 1 ? {付随番号} #\@" , 2
+				ELSE
+					CLEARBIT CFLAG:@"耐水\@ 付随番号 > 1 ? {付随番号} #\@" , 2
+				ENDIF
+			CASE "耐水全身上着"
+				IF RESULT
+					SETBIT CFLAG:@"耐水\@ 付随番号 > 1 ? {付随番号} #\@" , 3
+				ELSE
+					CLEARBIT CFLAG:@"耐水\@ 付随番号 > 1 ? {付随番号} #\@" , 3
+				ENDIF
+			CASE "耐水上半身下着"
+				IF RESULT
+					SETBIT CFLAG:@"耐水\@ 付随番号 > 1 ? {付随番号} #\@" , 4
+				ELSE
+					CLEARBIT CFLAG:@"耐水\@ 付随番号 > 1 ? {付随番号} #\@" , 4
+				ENDIF
+			CASE "耐水下半身下着"
+				IF RESULT
+					SETBIT CFLAG:@"耐水\@ 付随番号 > 1 ? {付随番号} #\@" , 5
+				ELSE
+					CLEARBIT CFLAG:@"耐水\@ 付随番号 > 1 ? {付随番号} #\@" , 5
+				ENDIF
+			CASE "耐水足元"
+				IF RESULT
+					SETBIT CFLAG:@"耐水\@ 付随番号 > 1 ? {付随番号} #\@" , 6
+				ELSE
+					CLEARBIT CFLAG:@"耐水\@ 付随番号 > 1 ? {付随番号} #\@" , 6
+				ENDIF
+		ENDSELECT
 		GOTO RESTART
 	CASE "服装プリセット"
 		服装プリセット = 付随番号

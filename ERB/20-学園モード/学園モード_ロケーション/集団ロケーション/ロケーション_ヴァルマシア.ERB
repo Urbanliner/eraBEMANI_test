@@ -50,15 +50,12 @@ FOR LCOUNT, 始点, 終点
 		CASE "ピュエル・バビステ", "コンダクター"
 			SIF 出現率:LCOUNT >= 0
 				出現率:LCOUNT = 100
-
 		CASEELSE
 			IF GROUPMATCH("Metaverse", CSTR:LCOUNT:登場作品, CSTR:LCOUNT:登場作品２, CSTR:LCOUNT:登場作品３)
-
 				;ストーリー読む限り一応世界は仮想空間と地上で共有してるっぽい？
 				SIF 出現率:LCOUNT >= 0
 					出現率:LCOUNT = 20
-	ENDIF
-
+			ENDIF
 	ENDSELECT
 NEXT
 
